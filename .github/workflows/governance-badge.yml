@@ -1,0 +1,79 @@
+name: Governance Ledger Status
+
+on:
+  push:
+    paths:
+      - 'docs/meeting-logs/**'
+
+jobs:
+  seal-and-badge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Generate Seal ID
+        run: |
+          # Find the latest modified markdown file in meeting-logs
+          latest=$(find docs/meeting-logs -type f -name "*.md" -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2-)
+          
+          if [ -z "$latest" ]; then
+            echo "No markdown files found in docs/meeting-logs"
+            exit 0
+          fi
+          
+          echo "Processing file: $latest"
+          
+          # Generate seal ID (SHA256 hash of file content + timestamp)
+          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          seal=$(sha256sum "$latest" | cut -d' ' -f1)
+          echo "Seal ID: $seal"
+          echo "Timestamp: $timestamp"
+          echo "SEAL_ID=$seal" >> $GITHUB_ENV
+          echo "TIMESTAMP=$timestamp" >> $GITHUB_ENV
+          echo "LATEST_FILE=$latest" >> $GITHUB_ENV
+
+          # Append seal footer if not already present
+          if ! grep -q "Seal ID:" "$latest"; then
+            echo "" >> "$latest"
+            echo "---" >> "$latest"
+            echo "" >> "$latest"
+            echo "**Seal Confirmation:**  " >> "$latest"
+            echo "This log has been sealed and archived under Crypto Hound Institutional License.  " >> "$latest"
+            echo "Seal ID: $seal  " >> "$latest"
+            echo "Sealed at: $timestamp" >> "$latest"
+            echo "Seal footer appended to $latest"
+          else
+            echo "Seal footer already present in $latest"
+          fi
+
+      - name: Commit updated log
+        run: |
+          git config --global user.name "Crypto Hound Bot"
+          git config --global user.email "bot@cryptohound.io"
+          git add docs/meeting-logs
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Seal log with ID $SEAL_ID"
+            git push
+          fi
+
+      - name: Update Governance Ledger Badge
+        if: env.SEAL_ID != ''
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: governance-ledger-${{ github.run_number }}
+          release_name: "Governance Ledger Up to Date"
+          body: |
+            Latest sealed log: ${{ env.LATEST_FILE }}
+            Seal ID: ${{ env.SEAL_ID }}
+            Sealed at: ${{ env.TIMESTAMP }}
+          draft: false
+          prerelease: false
