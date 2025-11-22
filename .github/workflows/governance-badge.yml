@@ -65,15 +65,28 @@ jobs:
 
       - name: Update Governance Ledger Badge
         if: env.SEAL_ID != ''
-        uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: governance-ledger-${{ github.run_number }}
-          release_name: "Governance Ledger Up to Date"
-          body: |
-            Latest sealed log: ${{ env.LATEST_FILE }}
-            Seal ID: ${{ env.SEAL_ID }}
-            Sealed at: ${{ env.TIMESTAMP }}
-          draft: false
-          prerelease: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create or update release for governance ledger badge
+          TAG_NAME="governance-ledger"
+          RELEASE_TITLE="Governance Ledger Status - Up to Date"
+          RELEASE_BODY="**Latest Sealed Log:** \`$LATEST_FILE\`
+          
+          **Seal ID:** \`$SEAL_ID\`
+          
+          **Sealed at:** $TIMESTAMP
+          
+          ---
+          
+          This release is automatically updated when new meeting logs are sealed. The presence of this release indicates that the governance ledger is actively maintained and up to date."
+          
+          # Delete existing release and tag if they exist
+          gh release delete "$TAG_NAME" -y 2>/dev/null || true
+          git push --delete origin "$TAG_NAME" 2>/dev/null || true
+          
+          # Create new release
+          gh release create "$TAG_NAME" \
+            --title "$RELEASE_TITLE" \
+            --notes "$RELEASE_BODY" \
+            --latest
