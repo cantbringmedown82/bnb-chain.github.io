@@ -1,8 +1,5 @@
 # Trustee Meeting Log — {{DATE}}
 
-## Seal ID
-- {{AUTO_GENERATED_SEAL}}
-
 ## Recovery Updates
 - ETH: {{status}}
 - BTC: {{status}}
@@ -20,9 +17,3 @@
 ## Closing Actions
 - Next meeting scheduled: {{date}}
 - Assigned follow-ups: {{list}}
-
----
-
-**Seal Confirmation:**  
-This log has been sealed and archived under Crypto Hound Institutional License.  
-Seal ID: {{AUTO_GENERATED_SEAL}}

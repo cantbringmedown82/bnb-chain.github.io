@@ -18,8 +18,8 @@ jobs:
 
       - name: Generate Seal ID
         run: |
-          # Find the latest modified markdown file in meeting-logs
-          latest=$(find docs/meeting-logs -type f -name "*.md" -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2-)
+          # Find the latest modified markdown file in meeting-logs (cross-platform)
+          latest=$(ls -t docs/meeting-logs/*/*.md 2>/dev/null | grep -v README | head -n1)
           
           if [ -z "$latest" ]; then
             echo "No markdown files found in docs/meeting-logs"
@@ -28,7 +28,7 @@ jobs:
           
           echo "Processing file: $latest"
           
-          # Generate seal ID (SHA256 hash of file content + timestamp)
+          # Generate seal ID (SHA256 hash of file content)
           timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           seal=$(sha256sum "$latest" | cut -d' ' -f1)
           echo "Seal ID: $seal"
@@ -37,8 +37,8 @@ jobs:
           echo "TIMESTAMP=$timestamp" >> $GITHUB_ENV
           echo "LATEST_FILE=$latest" >> $GITHUB_ENV
 
-          # Append seal footer if not already present
-          if ! grep -q "Seal ID:" "$latest"; then
+          # Append seal footer if not already present (check for actual seal confirmation footer)
+          if ! grep -q "This log has been sealed and archived" "$latest"; then
             echo "" >> "$latest"
             echo "---" >> "$latest"
             echo "" >> "$latest"

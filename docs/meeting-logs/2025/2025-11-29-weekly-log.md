@@ -1,8 +1,5 @@
 # Trustee Meeting Log — 2025-11-29
 
-## Seal ID
-- Pending auto-generation
-
 ## Recovery Updates
 - ETH: 3 recovery events processed, $22,890 recovered
 - BTC: 2 recovery events, 0.035 BTC recovered
