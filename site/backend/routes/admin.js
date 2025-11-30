@@ -7,9 +7,10 @@ const router = express.Router();
 
 /**
  * Middleware to validate admin API key
+ * API key must be passed via x-admin-api-key header (not query params for security)
  */
 function requireAdminKey(req, res, next) {
-  const apiKey = req.headers['x-admin-api-key'] || req.query.apiKey;
+  const apiKey = req.headers['x-admin-api-key'];
   const expectedKey = process.env.ADMIN_API_KEY;
 
   if (!expectedKey) {

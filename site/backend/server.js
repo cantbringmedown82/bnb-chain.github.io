@@ -59,7 +59,44 @@ app.use((req, res, next) => {
 // Serve reports statically
 app.use('/reports', express.static(path.join(__dirname, 'deploy', 'reports')));
 
-app.get('/evidence-index', async (req, res) => {
+// Simple in-memory rate limiter for file system access endpoints
+const rateLimitStore = new Map();
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 60; // 60 requests per minute
+
+function rateLimit(req, res, next) {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowStart = now - RATE_LIMIT_WINDOW_MS;
+
+  // Get or create request history for this IP
+  let requests = rateLimitStore.get(ip) || [];
+  // Filter to only include requests within the window
+  requests = requests.filter((timestamp) => timestamp > windowStart);
+
+  if (requests.length >= RATE_LIMIT_MAX_REQUESTS) {
+    return res.status(429).json({
+      error: 'Too many requests',
+      retryAfter: Math.ceil((requests[0] + RATE_LIMIT_WINDOW_MS - now) / 1000),
+    });
+  }
+
+  requests.push(now);
+  rateLimitStore.set(ip, requests);
+
+  // Clean up old entries periodically
+  if (rateLimitStore.size > 10000) {
+    for (const [key, timestamps] of rateLimitStore.entries()) {
+      if (timestamps.every((t) => t <= windowStart)) {
+        rateLimitStore.delete(key);
+      }
+    }
+  }
+
+  next();
+}
+
+app.get('/evidence-index', rateLimit, async (req, res) => {
   try {
     await ensureEvidenceFile();
     const evidence = await fs.readFile(EVIDENCE_PATH, 'utf8');

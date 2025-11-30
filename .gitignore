@@ -3,6 +3,9 @@ site/*
 !site/backend/
 !site/backend/**
 
+# Ignore generated evidence file (created at runtime)
+site/backend/deploy/reports/compliance-evidence-index.json
+
 .idea/
 
 .cache
