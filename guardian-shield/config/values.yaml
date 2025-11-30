@@ -139,6 +139,23 @@ security:
     atRest: true
     inTransit: true
     algorithm: "AES-256-GCM"
+  testing:
+    enabled: true
+    modes:
+      - "api_fuzz"
+      - "tamper_replay"
+      - "anchor_spoof"
+      - "autoscale_stress"
+      - "xss_csrf"
+    evidence:
+      seal: true
+      anchor: true
+    rbac_guard:
+      deny_by_default: true
+      test_id_tagging: "redteam_run_uuid"
+    sla_watch:
+      critical_p95_threshold_seconds: 900
+      alert_on_breach: true
 
 monitoring:
   prometheus:
