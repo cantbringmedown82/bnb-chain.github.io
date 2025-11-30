@@ -1,0 +1,173 @@
+# Guardian Shield — Prometheus/Alertmanager Rules
+# Crypto Hound LLC
+
+groups:
+  - name: guardian-critical
+    interval: 15s
+    rules:
+      - alert: CriticalFraudDetected
+        expr: guardian_fraud_events_total{severity="critical"} > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Critical fraud event detected"
+          description: "A critical severity fraud event has been detected. Immediate action required."
+          runbook_url: "https://docs.cryptohound.io/runbooks/critical-fraud"
+
+      - alert: HighSeverityFraudSpike
+        expr: rate(guardian_fraud_events_total{severity="high"}[5m]) > 10
+        for: 1m
+        labels:
+          severity: high
+          team: security
+        annotations:
+          summary: "High severity fraud event spike"
+          description: "More than 10 high-severity fraud events detected in the last 5 minutes."
+
+      - alert: EvidenceLedgerWriteFailure
+        expr: guardian_evidence_write_failures_total > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Evidence ledger write failure"
+          description: "Failed to write to the append-only evidence ledger. Data integrity at risk."
+
+  - name: guardian-sla
+    interval: 30s
+    rules:
+      - alert: SLAResponseTimeExceeded
+        expr: histogram_quantile(0.95, guardian_response_time_bucket) > 5000
+        for: 5m
+        labels:
+          severity: high
+          team: platform
+        annotations:
+          summary: "SLA response time exceeded"
+          description: "95th percentile response time has exceeded 5 seconds for more than 5 minutes."
+
+      - alert: AgentHealthDegraded
+        expr: guardian_active_agents < 1
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "No active Guardian agents"
+          description: "All Guardian agents are unhealthy or offline."
+
+      - alert: OrchestratorDown
+        expr: up{job="shield-orchestrator"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Shield Orchestrator is down"
+          description: "The Guardian Shield Orchestrator is not responding."
+
+  - name: guardian-compliance
+    interval: 1m
+    rules:
+      - alert: WeeklyReportOverdue
+        expr: (time() - guardian_last_report_timestamp) > 604800
+        for: 1h
+        labels:
+          severity: high
+          team: compliance
+        annotations:
+          summary: "Weekly compliance report is overdue"
+          description: "No compliance report has been generated in the past 7 days."
+
+      - alert: EvidenceAnchorFailed
+        expr: guardian_anchor_failures_total > 0
+        for: 0m
+        labels:
+          severity: high
+          team: compliance
+        annotations:
+          summary: "Evidence anchoring failed"
+          description: "Failed to anchor evidence hash to the blockchain. Audit trail incomplete."
+
+      - alert: TamperDetected
+        expr: guardian_tamper_detections_total > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Evidence tampering detected"
+          description: "Hash mismatch detected in evidence ledger. Possible tampering attempt."
+
+  - name: guardian-drills
+    interval: 1m
+    rules:
+      - alert: DrillFailure
+        expr: guardian_drill_failures_total > 0
+        for: 0m
+        labels:
+          severity: medium
+          team: platform
+        annotations:
+          summary: "Synthetic drill failed"
+          description: "A synthetic fraud drill did not complete successfully."
+
+      - alert: DrillScheduleMissed
+        expr: (time() - guardian_last_drill_timestamp) > 86400
+        for: 1h
+        labels:
+          severity: medium
+          team: platform
+        annotations:
+          summary: "Synthetic drill schedule missed"
+          description: "No synthetic drill has been executed in the past 24 hours."
+
+inhibit_rules:
+  - source_match:
+      severity: critical
+    target_match:
+      severity: high
+    equal:
+      - alertname
+      - team
+
+receivers:
+  - name: regulator-critical
+    slack_configs:
+      - api_url: ${SLACK_WEBHOOK_URL}
+        channel: "#guardian-critical"
+        title: "{{ .GroupLabels.alertname }}"
+        text: "{{ .CommonAnnotations.description }}"
+    email_configs:
+      - to: regulators@cryptohound.io
+        send_resolved: true
+
+  - name: investor-updates
+    email_configs:
+      - to: investors@cryptohound.io
+        send_resolved: true
+
+  - name: platform-alerts
+    slack_configs:
+      - api_url: ${SLACK_WEBHOOK_URL}
+        channel: "#guardian-platform"
+
+route:
+  group_by:
+    - alertname
+    - severity
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: platform-alerts
+  routes:
+    - match:
+        severity: critical
+      receiver: regulator-critical
+      continue: true
+    - match:
+        team: compliance
+      receiver: investor-updates

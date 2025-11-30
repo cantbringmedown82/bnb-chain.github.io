@@ -1,0 +1,261 @@
+# Evidence Ledger Schema
+## Guardian Shield — Crypto Hound LLC
+
+openapi: "3.0.3"
+info:
+  title: Evidence Ledger Schema
+  version: "1.0.0"
+  description: Append-only evidence ledger design for Guardian Shield
+
+components:
+  schemas:
+    EvidenceEntry:
+      type: object
+      required:
+        - id
+        - timestamp
+        - type
+        - payload
+        - hash
+        - prev_hash
+        - signature
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the evidence entry
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        
+        sequence:
+          type: integer
+          format: int64
+          description: Sequential position in the ledger
+          example: 12345
+        
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of entry creation
+          example: "2025-01-15T10:30:00.000Z"
+        
+        type:
+          type: string
+          enum:
+            - fraud_event
+            - alert_triggered
+            - report_generated
+            - drill_executed
+            - configuration_change
+            - anchor_created
+          description: Type of evidence being recorded
+        
+        severity:
+          type: string
+          enum:
+            - critical
+            - high
+            - medium
+            - low
+            - info
+          description: Severity level of the event
+        
+        payload:
+          type: object
+          description: Event-specific payload data
+          properties:
+            event_id:
+              type: string
+              description: Reference to the source event
+            category:
+              type: string
+              description: Event category (mixer, exchange, pool, dust)
+            addresses:
+              type: array
+              items:
+                type: string
+              description: Related blockchain addresses
+            transaction_hashes:
+              type: array
+              items:
+                type: string
+              description: Related transaction hashes
+            metadata:
+              type: object
+              additionalProperties: true
+              description: Additional contextual data
+        
+        hash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+          description: SHA-256 hash of the entry content
+          example: "a3b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8"
+        
+        prev_hash:
+          type: string
+          pattern: "^[a-f0-9]{64}$"
+          description: SHA-256 hash of the previous entry (genesis block uses zeros)
+          example: "0000000000000000000000000000000000000000000000000000000000000000"
+        
+        signature:
+          type: string
+          description: Ed25519 signature of the entry
+          example: "base64-encoded-signature..."
+        
+        signing_key_id:
+          type: string
+          description: Identifier of the key used for signing
+          example: "key-2025-01"
+        
+        anchor:
+          type: object
+          nullable: true
+          description: Blockchain anchor information (when anchored)
+          properties:
+            chain:
+              type: string
+              enum:
+                - ethereum
+                - bsc
+                - polygon
+              description: Target blockchain
+            transaction_hash:
+              type: string
+              description: Anchor transaction hash
+            block_number:
+              type: integer
+              description: Block number containing the anchor
+            timestamp:
+              type: string
+              format: date-time
+              description: Anchor confirmation timestamp
+
+    LedgerMetadata:
+      type: object
+      properties:
+        version:
+          type: string
+          description: Ledger format version
+          example: "1.0"
+        genesis_timestamp:
+          type: string
+          format: date-time
+          description: Creation timestamp of the ledger
+        entry_count:
+          type: integer
+          format: int64
+          description: Total number of entries
+        last_sequence:
+          type: integer
+          format: int64
+          description: Sequence number of the last entry
+        last_hash:
+          type: string
+          description: Hash of the most recent entry
+        last_anchor:
+          type: object
+          properties:
+            sequence:
+              type: integer
+              description: Last anchored sequence
+            transaction_hash:
+              type: string
+              description: Last anchor transaction
+
+    VerificationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Overall verification status
+        checked_entries:
+          type: integer
+          description: Number of entries verified
+        hash_chain_valid:
+          type: boolean
+          description: Hash chain integrity status
+        signatures_valid:
+          type: boolean
+          description: Signature verification status
+        anchors_valid:
+          type: boolean
+          description: Blockchain anchor verification status
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              sequence:
+                type: integer
+              error:
+                type: string
+
+    ExportManifest:
+      type: object
+      properties:
+        export_id:
+          type: string
+          format: uuid
+        export_timestamp:
+          type: string
+          format: date-time
+        format:
+          type: string
+          enum:
+            - json
+            - pdfa
+            - csv
+        entry_range:
+          type: object
+          properties:
+            start_sequence:
+              type: integer
+            end_sequence:
+              type: integer
+        checksum:
+          type: string
+          description: SHA-256 of exported content
+        signature:
+          type: string
+          description: Ed25519 signature of manifest
+
+# Database Schema (PostgreSQL)
+# ----------------------------
+# 
+# CREATE TABLE evidence_entries (
+#     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+#     sequence BIGSERIAL NOT NULL UNIQUE,
+#     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+#     type VARCHAR(50) NOT NULL,
+#     severity VARCHAR(20),
+#     payload JSONB NOT NULL,
+#     hash CHAR(64) NOT NULL,
+#     prev_hash CHAR(64) NOT NULL,
+#     signature TEXT NOT NULL,
+#     signing_key_id VARCHAR(50) NOT NULL,
+#     anchor_chain VARCHAR(20),
+#     anchor_tx_hash VARCHAR(66),
+#     anchor_block_number BIGINT,
+#     anchor_timestamp TIMESTAMPTZ,
+#     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+# );
+# 
+# CREATE INDEX idx_entries_timestamp ON evidence_entries(timestamp);
+# CREATE INDEX idx_entries_type ON evidence_entries(type);
+# CREATE INDEX idx_entries_severity ON evidence_entries(severity);
+# CREATE INDEX idx_entries_hash ON evidence_entries(hash);
+# 
+# -- Immutability enforced via triggers
+# CREATE OR REPLACE FUNCTION prevent_update_delete()
+# RETURNS TRIGGER AS $$
+# BEGIN
+#     RAISE EXCEPTION 'Evidence ledger entries cannot be modified or deleted';
+# END;
+# $$ LANGUAGE plpgsql;
+# 
+# CREATE TRIGGER tr_prevent_update
+#     BEFORE UPDATE ON evidence_entries
+#     FOR EACH ROW EXECUTE FUNCTION prevent_update_delete();
+# 
+# CREATE TRIGGER tr_prevent_delete
+#     BEFORE DELETE ON evidence_entries
+#     FOR EACH ROW EXECUTE FUNCTION prevent_update_delete();

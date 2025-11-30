@@ -1,0 +1,80 @@
+# Guardian Shield — Orchestrator + Agent Configuration
+# Crypto Hound LLC
+
+orchestrator:
+  name: shield-orchestrator
+  replicas: 1
+  image: ghcr.io/cryptohound/shield-orchestrator:latest
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  env:
+    LOG_LEVEL: info
+    EVIDENCE_LEDGER_PATH: /data/evidence
+    ALERT_SEVERITY_THRESHOLD: high
+    SLA_RESPONSE_TIME_MS: 5000
+    AUTO_SCALE_ENABLED: true
+    MIN_AGENTS: 1
+    MAX_AGENTS: 10
+
+agents:
+  fraud_monitor:
+    enabled: true
+    image: ghcr.io/cryptohound/fraud-agent:latest
+    replicas: 2
+    polling_interval_ms: 1000
+    alert_channels:
+      - slack
+      - email
+      - pagerduty
+    severity_mapping:
+      critical: immediate
+      high: 5m
+      medium: 30m
+      low: 1h
+
+  evidence_collector:
+    enabled: true
+    image: ghcr.io/cryptohound/evidence-agent:latest
+    replicas: 1
+    storage:
+      type: append-only
+      hash_algorithm: sha256
+      signature_scheme: ed25519
+      anchor_chain: ethereum
+
+  report_exporter:
+    enabled: true
+    image: ghcr.io/cryptohound/report-agent:latest
+    replicas: 1
+    formats:
+      - pdfa
+      - json
+      - csv
+    schedule: "0 6 * * 1"  # Weekly Monday 06:00 UTC
+
+alerting:
+  prometheus:
+    enabled: true
+    scrape_interval: 15s
+  alertmanager:
+    enabled: true
+    receivers:
+      - name: regulator-critical
+        slack_configs:
+          - channel: "#guardian-critical"
+        email_configs:
+          - to: regulators@cryptohound.io
+      - name: investor-updates
+        email_configs:
+          - to: investors@cryptohound.io
+
+governance:
+  evidence_retention_days: 2555  # 7 years for compliance
+  audit_log_enabled: true
+  tamper_detection: true
+  quantum_resistant_signatures: true

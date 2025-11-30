@@ -1,0 +1,261 @@
+# Guardian Shield — Drill Schedule Configuration
+# Crypto Hound LLC
+#
+# Defines the schedule for automated synthetic drills and validations.
+
+version: "1.0"
+name: drill-schedule
+
+timezone: UTC
+
+# ============================================================================
+# SCHEDULED DRILLS
+# ============================================================================
+
+drills:
+  # Weekly comprehensive drill - Monday mornings
+  - id: weekly-full-drill
+    name: Weekly Full System Drill
+    description: Comprehensive test of all fraud detection and response systems
+    enabled: true
+    schedule:
+      cron: "0 6 * * 1"  # Every Monday at 06:00 UTC
+    scenarios:
+      - mixer-basic
+      - mixer-chain
+      - exchange-wash-trading
+      - exchange-front-running
+      - pool-rug-pull
+      - pool-flash-loan
+      - dust-tracking
+      - dust-spam
+    config:
+      events_per_scenario: 3
+      duration_minutes: 30
+      parallel_scenarios: 2
+    validations:
+      - type: detection_rate
+        threshold: 95
+        severity: critical
+      - type: response_time
+        p95_ms: 5000
+      - type: evidence_integrity
+        hash_chain: true
+        signatures: true
+    notifications:
+      on_start: true
+      on_complete: true
+      on_failure: true
+      channels:
+        - slack:#guardian-drills
+        - email:security@cryptohound.io
+
+  # Daily critical event drill
+  - id: daily-critical-drill
+    name: Daily Critical Event Response
+    description: Test critical alert detection and response
+    enabled: true
+    schedule:
+      cron: "0 12 * * *"  # Every day at 12:00 UTC
+    scenarios:
+      - mixer-chain
+      - exchange-front-running
+      - pool-rug-pull
+    config:
+      events_per_scenario: 1
+      duration_minutes: 10
+    validations:
+      - type: detection_rate
+        threshold: 100
+        severity: critical
+      - type: response_time
+        p95_ms: 1000
+    notifications:
+      on_failure: true
+      channels:
+        - slack:#guardian-alerts
+
+  # Hourly health check
+  - id: hourly-health-check
+    name: Hourly System Health Check
+    description: Quick validation of system responsiveness
+    enabled: true
+    schedule:
+      cron: "0 * * * *"  # Every hour
+    scenarios:
+      - dust-tracking  # Low-severity, low-impact
+    config:
+      events_per_scenario: 1
+      duration_minutes: 2
+    validations:
+      - type: system_health
+        agents_online: true
+        api_responsive: true
+    notifications:
+      on_failure: true
+      channels:
+        - pagerduty:guardian-oncall
+
+  # Monthly stress test
+  - id: monthly-stress-test
+    name: Monthly Stress Test
+    description: High-volume event generation to test system limits
+    enabled: true
+    schedule:
+      cron: "0 2 1 * *"  # First day of month at 02:00 UTC
+    scenarios:
+      - mixer-basic
+      - exchange-wash-trading
+      - dust-tracking
+    config:
+      events_per_scenario: 100
+      duration_minutes: 60
+      parallel_scenarios: 4
+      rate_multiplier: 5
+    validations:
+      - type: throughput
+        min_events_per_second: 50
+      - type: error_rate
+        max_percent: 1
+      - type: resource_usage
+        cpu_max_percent: 80
+        memory_max_percent: 85
+    notifications:
+      on_start: true
+      on_complete: true
+      channels:
+        - slack:#guardian-platform
+        - email:devops@cryptohound.io
+
+# ============================================================================
+# VALIDATION DEFINITIONS
+# ============================================================================
+
+validation_types:
+  detection_rate:
+    description: Percentage of synthetic events correctly detected
+    metrics:
+      - detected_count
+      - total_generated
+    calculation: (detected_count / total_generated) * 100
+    
+  response_time:
+    description: Time from event generation to alert
+    metrics:
+      - p50_ms
+      - p95_ms
+      - p99_ms
+    collection_method: histogram
+    
+  evidence_integrity:
+    description: Verify evidence ledger integrity
+    checks:
+      - hash_chain_valid
+      - signatures_valid
+      - anchors_valid
+    
+  system_health:
+    description: Basic system health indicators
+    checks:
+      - agents_online
+      - api_responsive
+      - database_connected
+    
+  throughput:
+    description: Events processed per second
+    metrics:
+      - events_per_second
+      - queue_depth
+    
+  error_rate:
+    description: Percentage of processing errors
+    metrics:
+      - error_count
+      - total_processed
+    calculation: (error_count / total_processed) * 100
+    
+  resource_usage:
+    description: System resource utilization
+    metrics:
+      - cpu_percent
+      - memory_percent
+      - disk_percent
+
+# ============================================================================
+# NOTIFICATION CHANNELS
+# ============================================================================
+
+notification_channels:
+  slack:
+    - id: guardian-drills
+      webhook_env: SLACK_WEBHOOK_DRILLS
+    - id: guardian-alerts
+      webhook_env: SLACK_WEBHOOK_ALERTS
+    - id: guardian-platform
+      webhook_env: SLACK_WEBHOOK_PLATFORM
+      
+  email:
+    - id: security@cryptohound.io
+      smtp_env: SMTP_CONFIG
+    - id: devops@cryptohound.io
+      smtp_env: SMTP_CONFIG
+      
+  pagerduty:
+    - id: guardian-oncall
+      routing_key_env: PAGERDUTY_ROUTING_KEY
+
+# ============================================================================
+# REPORTING
+# ============================================================================
+
+reporting:
+  # Generate drill summary reports
+  summary:
+    enabled: true
+    retention_days: 90
+    format: json
+    
+  # Trend analysis
+  trends:
+    enabled: true
+    lookback_days: 30
+    metrics:
+      - detection_rate
+      - response_time_p95
+      - system_availability
+      
+  # Export for compliance
+  compliance_export:
+    enabled: true
+    schedule:
+      cron: "0 6 * * 1"  # Weekly with full drill
+    format: pdfa
+    recipients:
+      - compliance@cryptohound.io
+
+# ============================================================================
+# FAILURE HANDLING
+# ============================================================================
+
+failure_handling:
+  # Retry failed drills
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_minutes: 5
+    
+  # Escalation path
+  escalation:
+    - after_failures: 1
+      action: notify
+      channels:
+        - slack:#guardian-alerts
+    - after_failures: 2
+      action: notify
+      channels:
+        - pagerduty:guardian-oncall
+    - after_failures: 3
+      action: disable_drill
+      notify:
+        - email:security@cryptohound.io
+        - email:devops@cryptohound.io

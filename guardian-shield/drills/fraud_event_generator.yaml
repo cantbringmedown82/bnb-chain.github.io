@@ -1,0 +1,270 @@
+# Guardian Shield — Synthetic Fraud Event Generator
+# Crypto Hound LLC
+#
+# This configuration defines synthetic fraud scenarios for drill testing.
+# Events are designed to simulate real-world fraud patterns without affecting production data.
+
+version: "1.0"
+name: fraud-event-generator
+
+defaults:
+  environment: drill
+  evidence_prefix: "DRILL-"
+  auto_cleanup: true
+  cleanup_delay_hours: 24
+
+scenarios:
+  # ============================================================================
+  # MIXER ACTIVITY SCENARIOS
+  # ============================================================================
+  
+  - id: mixer-basic
+    name: Basic Mixer Activity
+    description: Single transaction through known mixer contract
+    enabled: true
+    weight: 30
+    severity: high
+    category: mixer
+    template:
+      event_type: fraud_event
+      payload:
+        category: mixer
+        mixer_type: tornado_cash
+        addresses:
+          source: "0x{{random_address}}"
+          mixer: "0x{{known_mixer_address}}"
+          destination: "0x{{random_address}}"
+        amount:
+          min: 1.0
+          max: 100.0
+          unit: ETH
+        transaction_count: 1
+        time_delay_minutes: 0
+
+  - id: mixer-chain
+    name: Mixer Chain Obfuscation
+    description: Multiple hops through different mixers
+    enabled: true
+    weight: 15
+    severity: critical
+    category: mixer
+    template:
+      event_type: fraud_event
+      payload:
+        category: mixer
+        mixer_type: chain
+        hops:
+          - mixer: tornado_cash
+            delay_minutes: 30
+          - mixer: railgun
+            delay_minutes: 60
+          - mixer: aztec
+            delay_minutes: 45
+        addresses:
+          source: "0x{{random_address}}"
+          final_destination: "0x{{random_address}}"
+        amount:
+          min: 10.0
+          max: 500.0
+          unit: ETH
+        total_transactions: "{{hops_count + 1}}"
+
+  # ============================================================================
+  # EXCHANGE IRREGULARITY SCENARIOS
+  # ============================================================================
+
+  - id: exchange-wash-trading
+    name: Wash Trading Detection
+    description: Self-dealing trades to inflate volume
+    enabled: true
+    weight: 20
+    severity: high
+    category: exchange
+    template:
+      event_type: fraud_event
+      payload:
+        category: exchange
+        subcategory: wash_trading
+        exchange: "{{random_dex}}"
+        trading_pair: "{{random_pair}}"
+        trades:
+          count:
+            min: 10
+            max: 50
+          volume_total:
+            min: 100000
+            max: 1000000
+            unit: USD
+        addresses:
+          buyer: "0x{{random_address}}"
+          seller: "0x{{linked_address}}"
+        time_window_hours: 1
+
+  - id: exchange-front-running
+    name: Front-Running Attack
+    description: MEV bot sandwich attack
+    enabled: true
+    weight: 10
+    severity: critical
+    category: exchange
+    template:
+      event_type: fraud_event
+      payload:
+        category: exchange
+        subcategory: front_running
+        attack_type: sandwich
+        victim_tx: "0x{{random_tx_hash}}"
+        attacker_addresses:
+          front: "0x{{random_address}}"
+          back: "0x{{same_as_front}}"
+        profit_extracted:
+          min: 100
+          max: 10000
+          unit: USD
+        gas_premium_gwei: "{{random_int(50, 200)}}"
+
+  # ============================================================================
+  # LIQUIDITY POOL MANIPULATION SCENARIOS
+  # ============================================================================
+
+  - id: pool-rug-pull
+    name: Rug Pull Indicator
+    description: Liquidity removal after promotion
+    enabled: true
+    weight: 10
+    severity: critical
+    category: pool
+    template:
+      event_type: fraud_event
+      payload:
+        category: pool
+        subcategory: rug_pull
+        pool_address: "0x{{random_address}}"
+        token:
+          address: "0x{{random_address}}"
+          symbol: "{{random_token_symbol}}"
+        liquidity_removed:
+          percentage: "{{random_int(80, 100)}}"
+          value_usd:
+            min: 50000
+            max: 5000000
+        time_since_creation_hours: "{{random_int(24, 168)}}"
+        social_indicators:
+          telegram_deleted: true
+          twitter_deleted: true
+
+  - id: pool-flash-loan
+    name: Flash Loan Attack
+    description: Pool manipulation via uncollateralized loan
+    enabled: true
+    weight: 5
+    severity: critical
+    category: pool
+    template:
+      event_type: fraud_event
+      payload:
+        category: pool
+        subcategory: flash_loan_attack
+        loan_provider: "{{random_flash_loan_provider}}"
+        loan_amount:
+          min: 100000
+          max: 10000000
+          unit: USD
+        target_pool: "0x{{random_address}}"
+        profit:
+          min: 1000
+          max: 500000
+          unit: USD
+        tx_sequence_count: "{{random_int(3, 7)}}"
+
+  # ============================================================================
+  # DUST ATTACK SCENARIOS
+  # ============================================================================
+
+  - id: dust-tracking
+    name: Dust Attack Tracking
+    description: Small amounts sent to link wallets
+    enabled: true
+    weight: 20
+    severity: low
+    category: dust
+    template:
+      event_type: fraud_event
+      payload:
+        category: dust
+        subcategory: tracking
+        source_address: "0x{{random_address}}"
+        target_addresses_count:
+          min: 100
+          max: 1000
+        dust_amount:
+          value: "{{random_int(1, 100)}}"
+          unit: wei
+        purpose: wallet_linking
+
+  - id: dust-spam
+    name: Dust Spam Campaign
+    description: Token spam for phishing
+    enabled: true
+    weight: 10
+    severity: medium
+    category: dust
+    template:
+      event_type: fraud_event
+      payload:
+        category: dust
+        subcategory: spam
+        spam_token:
+          address: "0x{{random_address}}"
+          name: "{{random_scam_token_name}}"
+        recipients_count:
+          min: 1000
+          max: 50000
+        phishing_url: "{{random_phishing_domain}}"
+
+# ============================================================================
+# GENERATION SETTINGS
+# ============================================================================
+
+generation:
+  mode: weighted_random
+  batch_size: 10
+  interval_seconds: 60
+  jitter_percent: 20
+  
+  # Rate limits by severity
+  rate_limits:
+    critical:
+      max_per_hour: 5
+      cooldown_minutes: 30
+    high:
+      max_per_hour: 20
+      cooldown_minutes: 10
+    medium:
+      max_per_hour: 50
+      cooldown_minutes: 5
+    low:
+      max_per_hour: 100
+      cooldown_minutes: 1
+
+# ============================================================================
+# OUTPUT CONFIGURATION
+# ============================================================================
+
+output:
+  targets:
+    - type: api
+      endpoint: "${GUARDIAN_API_URL}/evidence"
+      auth: bearer
+      token_env: GUARDIAN_API_KEY
+    
+    - type: file
+      path: "./drill-output/events-{{timestamp}}.json"
+      format: jsonl
+
+  # Inject drill metadata
+  metadata:
+    drill_run_id: "{{run_id}}"
+    generated_at: "{{timestamp}}"
+    scenario_id: "{{scenario.id}}"
+    is_synthetic: true
