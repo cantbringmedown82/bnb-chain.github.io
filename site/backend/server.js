@@ -41,7 +41,7 @@ async function appendEvidenceEntry(entry) {
   writeQueue = writeQueue.then(async () => {
     // read-modify-write with atomic rename
     const raw = await fs.readFile(EVIDENCE_PATH, 'utf8');
-    const data = JSON.parse(raw || '{"reports":[]}');
+    const data = JSON.parse(raw);
     data.reports = data.reports || [];
     data.reports.push(entry);
     const tmpPath = EVIDENCE_PATH + '.tmp';
@@ -75,7 +75,7 @@ app.get('/evidence-index', async (req, res) => {
   }
 });
 
-// Stripe routes
+// Stripe checkout routes
 const router = express.Router();
 
 router.post('/create-checkout-session', async (req, res) => {
@@ -94,7 +94,10 @@ router.post('/create-checkout-session', async (req, res) => {
   }
 });
 
-// Webhook - must use raw body for signature verification
+// Mount router for checkout routes before webhook
+app.use('/', router);
+
+// Stripe Webhook - must use raw body for signature verification
 app.post(
   '/webhook',
   bodyParser.raw({ type: 'application/json' }),
@@ -111,8 +114,8 @@ app.post(
     try {
       switch (event.type) {
         case 'checkout.session.completed':
-          // Optional: record session info or append to evidence ledger if appropriate
-          // Example placeholder: await appendEvidenceEntry({ report_date: new Date().toISOString(), sha256: '', file: '', signature: '', anchor_tx: '' });
+          // Optional: record session info or append to evidence ledger
+          // Implement business logic here to extract relevant data from event
           break;
         case 'invoice.paid':
           // handle invoice paid
@@ -131,9 +134,6 @@ app.post(
     res.json({ received: true });
   }
 );
-
-// Mount router for non-webhook stripe routes
-app.use('/', router);
 
 // Health
 app.get('/health', (req, res) => res.json({ ok: true }));
