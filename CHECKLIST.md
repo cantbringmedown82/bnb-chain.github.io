@@ -14,4 +14,5 @@
 
 - Add JSON Schema validation and stricter input validation for evidence entries.
 - Add E2E tests for webhook flow and evidence append.
+- Add rate limiting to API endpoints (e.g., using `express-rate-limit`) to prevent abuse and file system access DoS.
 - Consider backing evidence ledger with PostgreSQL or object storage + transactional metadata to avoid file-based races at scale.
