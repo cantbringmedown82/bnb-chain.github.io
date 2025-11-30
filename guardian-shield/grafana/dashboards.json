@@ -1,0 +1,343 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "guardian-shield-main",
+    "title": "Guardian Shield — Fraud Defense Dashboard",
+    "description": "Regulator-grade fraud defense monitoring for Crypto Hound LLC",
+    "tags": ["guardian-shield", "fraud", "compliance", "crypto-hound"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Total Fraud Alerts (24h)",
+        "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          { "expr": "sum(increase(shield_alerts_total[24h]))", "refId": "A" }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "center"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 10 },
+                { "color": "red", "value": 50 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Critical Alerts (Active)",
+        "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          { "expr": "sum(shield_alerts_total{severity=\"critical\", status=\"active\"})", "refId": "A" }
+        ],
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "SLA Compliance Rate",
+        "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          { "expr": "shield_sla_compliance_rate * 100", "refId": "A" }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 95 },
+                { "color": "green", "value": 99 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Evidence Entries (Total)",
+        "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+        "targets": [
+          { "expr": "shield_ledger_entries_total", "refId": "A" }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 5,
+        "type": "timeseries",
+        "title": "Fraud Alerts by Severity",
+        "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+        "targets": [
+          { "expr": "sum(rate(shield_alerts_total{severity=\"critical\"}[5m])) * 60", "legendFormat": "Critical", "refId": "A" },
+          { "expr": "sum(rate(shield_alerts_total{severity=\"high\"}[5m])) * 60", "legendFormat": "High", "refId": "B" },
+          { "expr": "sum(rate(shield_alerts_total{severity=\"medium\"}[5m])) * 60", "legendFormat": "Medium", "refId": "C" },
+          { "expr": "sum(rate(shield_alerts_total{severity=\"watchlist\"}[5m])) * 60", "legendFormat": "Watchlist", "refId": "D" }
+        ],
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom" }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "fillOpacity": 20
+            }
+          },
+          "overrides": [
+            { "matcher": { "id": "byName", "options": "Critical" }, "properties": [{ "id": "color", "value": { "fixedColor": "#C62828", "mode": "fixed" } }] },
+            { "matcher": { "id": "byName", "options": "High" }, "properties": [{ "id": "color", "value": { "fixedColor": "#FF9800", "mode": "fixed" } }] },
+            { "matcher": { "id": "byName", "options": "Medium" }, "properties": [{ "id": "color", "value": { "fixedColor": "#FFC107", "mode": "fixed" } }] },
+            { "matcher": { "id": "byName", "options": "Watchlist" }, "properties": [{ "id": "color", "value": { "fixedColor": "#2196F3", "mode": "fixed" } }] }
+          ]
+        }
+      },
+      {
+        "id": 6,
+        "type": "piechart",
+        "title": "Alert Distribution by Type",
+        "gridPos": { "x": 12, "y": 4, "w": 6, "h": 8 },
+        "targets": [
+          { "expr": "sum(shield_alerts_total) by (cluster)", "legendFormat": "{{ cluster }}", "refId": "A" }
+        ],
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right", "values": ["percent"] },
+          "pieType": "donut"
+        }
+      },
+      {
+        "id": 7,
+        "type": "gauge",
+        "title": "Critical Alert Response Time (p95)",
+        "gridPos": { "x": 18, "y": 4, "w": 6, "h": 8 },
+        "targets": [
+          { "expr": "histogram_quantile(0.95, sum(rate(shield_alert_response_seconds_bucket{severity=\"critical\"}[5m])) by (le))", "refId": "A" }
+        ],
+        "options": {
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "min": 0,
+            "max": 600,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 180 },
+                { "color": "red", "value": 300 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "type": "table",
+        "title": "Recent Fraud Cases",
+        "gridPos": { "x": 0, "y": 12, "w": 24, "h": 8 },
+        "targets": [
+          { "expr": "shield_cases_info", "format": "table", "instant": true, "refId": "A" }
+        ],
+        "options": {
+          "showHeader": true,
+          "sortBy": [{ "desc": true, "displayName": "timestamp" }]
+        },
+        "fieldConfig": {
+          "overrides": [
+            { "matcher": { "id": "byName", "options": "severity" }, "properties": [{ "id": "custom.displayMode", "value": "color-background" }] }
+          ]
+        },
+        "transformations": [
+          { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "job": true }, "indexByName": { "case_id": 0, "severity": 1, "cluster": 2, "status": 3, "timestamp": 4 } } }
+        ]
+      },
+      {
+        "id": 10,
+        "type": "heatmap",
+        "title": "Synthetic Drill Frequency",
+        "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+        "targets": [
+          { "expr": "rate(shield_drills_total[1d])", "refId": "A" }
+        ],
+        "options": {
+          "calculate": false,
+          "cellGap": 1,
+          "color": { "mode": "scheme", "scheme": "Spectral" },
+          "yAxis": { "axisPlacement": "left" }
+        },
+        "description": "Shows how often synthetic drills are executed (daily, weekly, biweekly, monthly)."
+      },
+      {
+        "id": 11,
+        "type": "stat",
+        "title": "Drill Success Rate",
+        "gridPos": { "x": 12, "y": 20, "w": 6, "h": 4 },
+        "targets": [
+          { "expr": "shield_drills_success_rate * 100", "refId": "A" }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 90 },
+                { "color": "green", "value": 95 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 12,
+        "type": "stat",
+        "title": "SLA Compliance — Critical Drill",
+        "gridPos": { "x": 18, "y": 20, "w": 6, "h": 4 },
+        "targets": [
+          { "expr": "histogram_quantile(0.95, sum(rate(shield_drill_response_seconds_bucket{severity=\"critical\"}[5m])) by (le))", "refId": "A" }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 180 },
+                { "color": "red", "value": 300 }
+              ]
+            }
+          }
+        },
+        "description": "95th percentile response time for critical mixer drills."
+      },
+      {
+        "id": 13,
+        "type": "table",
+        "title": "Synthetic Drill Log",
+        "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+        "targets": [
+          { "datasource": { "type": "loki" }, "expr": "{app=\"guardian-shield\", stream=\"drills\"}", "refId": "A" }
+        ],
+        "options": {
+          "showHeader": true
+        },
+        "transformations": [
+          { "id": "extractFields", "options": { "source": "line" } }
+        ]
+      },
+      {
+        "id": 14,
+        "type": "timeseries",
+        "title": "Ledger Write Operations",
+        "gridPos": { "x": 0, "y": 28, "w": 12, "h": 6 },
+        "targets": [
+          { "expr": "sum(rate(shield_ledger_writes_total[5m])) * 60", "legendFormat": "Writes/min", "refId": "A" },
+          { "expr": "sum(rate(shield_ledger_write_errors_total[5m])) * 60", "legendFormat": "Errors/min", "refId": "B" }
+        ],
+        "fieldConfig": {
+          "overrides": [
+            { "matcher": { "id": "byName", "options": "Errors/min" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+          ]
+        }
+      },
+      {
+        "id": 15,
+        "type": "timeseries",
+        "title": "Blockchain Anchor Status",
+        "gridPos": { "x": 12, "y": 28, "w": 12, "h": 6 },
+        "targets": [
+          { "expr": "sum(rate(shield_anchor_success_total[5m])) by (network) * 60", "legendFormat": "{{ network }}", "refId": "A" }
+        ],
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom" }
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "severity",
+          "type": "custom",
+          "options": [
+            { "text": "All", "value": "$__all" },
+            { "text": "Critical", "value": "critical" },
+            { "text": "High", "value": "high" },
+            { "text": "Medium", "value": "medium" },
+            { "text": "Watchlist", "value": "watchlist" }
+          ],
+          "current": { "text": "All", "value": "$__all" }
+        },
+        {
+          "name": "cluster",
+          "type": "query",
+          "datasource": { "type": "prometheus" },
+          "query": "label_values(shield_alerts_total, cluster)",
+          "refresh": 2
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Drills",
+          "datasource": { "type": "prometheus" },
+          "expr": "shield_drills_total",
+          "titleFormat": "Drill: {{ scenario }}",
+          "textFormat": "Severity: {{ severity }}"
+        }
+      ]
+    }
+  },
+  "overwrite": true
+}
