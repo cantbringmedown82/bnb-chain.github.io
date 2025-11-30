@@ -1,0 +1,264 @@
+# Guardian Shield - Fraud Event Generator Configuration
+# Synthetic fraud event generation for testing and drills
+
+version: "1.0"
+
+# Generator settings
+generator:
+  name: "fraud-event-generator"
+  version: "1.0.0"
+  mode: "synthetic"  # synthetic | replay
+  
+# Scenario definitions
+scenarios:
+  mixer:
+    name: "Mixer Detection Drill"
+    description: "Simulates mixer/tumbler transaction patterns"
+    enabled: true
+    
+    parameters:
+      # Number of transactions in the mixing pattern
+      transaction_count:
+        min: 5
+        max: 20
+        
+      # Time window for the mixing pattern
+      time_window_minutes:
+        min: 10
+        max: 60
+        
+      # Value ranges (in native token)
+      value_range:
+        min: 0.1
+        max: 10.0
+        
+      # Intermediate hop count
+      hop_count:
+        min: 3
+        max: 7
+        
+    expected_detection:
+      severity: high
+      risk_score_min: 0.7
+      risk_score_max: 0.95
+      detection_time_max_seconds: 30
+      
+    synthetic_addresses:
+      - "0xSYNTH_MIXER_INPUT_001"
+      - "0xSYNTH_MIXER_POOL_001"
+      - "0xSYNTH_MIXER_POOL_002"
+      - "0xSYNTH_MIXER_OUTPUT_001"
+      - "0xSYNTH_MIXER_OUTPUT_002"
+
+  exchange:
+    name: "Exchange Anomaly Drill"
+    description: "Simulates unusual exchange volume patterns"
+    enabled: true
+    
+    parameters:
+      # Volume spike multiplier vs normal
+      volume_spike_multiplier:
+        min: 3.0
+        max: 10.0
+        
+      # Duration of anomalous activity
+      duration_minutes:
+        min: 15
+        max: 120
+        
+      # Number of participating accounts
+      account_count:
+        min: 5
+        max: 50
+        
+    expected_detection:
+      severity: medium
+      risk_score_min: 0.5
+      risk_score_max: 0.8
+      detection_time_max_seconds: 60
+      
+    synthetic_addresses:
+      - "0xSYNTH_EXCHANGE_MAIN"
+      - "0xSYNTH_EXCHANGE_TRADER_001"
+      - "0xSYNTH_EXCHANGE_TRADER_002"
+
+  pool:
+    name: "Suspicious Pool Activity Drill"
+    description: "Simulates suspicious liquidity pool operations"
+    enabled: true
+    
+    parameters:
+      # Flash loan amount (in USD equivalent)
+      flash_loan_amount:
+        min: 100000
+        max: 10000000
+        
+      # Sandwich attack simulation
+      sandwich_attack:
+        enabled: true
+        profit_margin_bps: 50
+        
+      # Rug pull simulation
+      rug_pull:
+        enabled: true
+        liquidity_drain_percent: 95
+        
+    expected_detection:
+      severity: critical
+      risk_score_min: 0.85
+      risk_score_max: 1.0
+      detection_time_max_seconds: 15
+      
+    synthetic_addresses:
+      - "0xSYNTH_POOL_LP"
+      - "0xSYNTH_POOL_ATTACKER"
+      - "0xSYNTH_POOL_VICTIM"
+
+  dust:
+    name: "Dust Attack Drill"
+    description: "Simulates dust attack patterns for address tracking"
+    enabled: true
+    
+    parameters:
+      # Number of dust transactions
+      dust_transaction_count:
+        min: 50
+        max: 500
+        
+      # Dust amount (very small values)
+      dust_amount:
+        min: 0.00001
+        max: 0.001
+        
+      # Target addresses
+      target_address_count:
+        min: 10
+        max: 100
+        
+    expected_detection:
+      severity: low
+      risk_score_min: 0.3
+      risk_score_max: 0.5
+      detection_time_max_seconds: 120
+      
+    synthetic_addresses:
+      - "0xSYNTH_DUST_SOURCE"
+      - "0xSYNTH_DUST_TARGET_001"
+      - "0xSYNTH_DUST_TARGET_002"
+
+  watchlist:
+    name: "Watchlist Match Drill"
+    description: "Simulates transactions with known watchlist addresses"
+    enabled: true
+    
+    parameters:
+      # Watchlist categories
+      categories:
+        - sanctions
+        - known_fraudulent
+        - high_risk_jurisdiction
+        
+      # Transaction patterns
+      transaction_patterns:
+        direct_transfer: true
+        multi_hop: true
+        layering: true
+        
+    expected_detection:
+      severity: critical
+      risk_score_min: 0.95
+      risk_score_max: 1.0
+      detection_time_max_seconds: 5
+      
+    synthetic_addresses:
+      - "0xSYNTH_WATCHLIST_SANCTION"
+      - "0xSYNTH_WATCHLIST_FRAUDULENT"
+      - "0xSYNTH_WATCHLIST_HIGHRISK"
+
+# Event templates
+event_templates:
+  transaction:
+    fields:
+      - name: hash
+        type: string
+        format: "0x{random_hex_64}"
+      - name: from
+        type: address
+        source: scenario_addresses
+      - name: to
+        type: address
+        source: scenario_addresses
+      - name: value
+        type: decimal
+        source: scenario_parameters
+      - name: timestamp
+        type: datetime
+        source: generated
+      - name: block_number
+        type: integer
+        source: generated
+      - name: gas_used
+        type: integer
+        range: [21000, 500000]
+        
+  contract_interaction:
+    fields:
+      - name: hash
+        type: string
+        format: "0x{random_hex_64}"
+      - name: contract
+        type: address
+      - name: method
+        type: string
+      - name: input_data
+        type: bytes
+      - name: output_data
+        type: bytes
+
+# Output configuration
+output:
+  # Where to send generated events
+  destinations:
+    - type: kafka
+      topic: "synthetic-fraud-events"
+      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+      
+    - type: http
+      url: "${FRAUD_MONITOR_URL}/ingest"
+      method: POST
+      headers:
+        Content-Type: application/json
+        X-Synthetic: "true"
+        
+    - type: file
+      path: "/var/log/shield/synthetic-events.jsonl"
+      format: jsonl
+      rotate: daily
+
+  # Event metadata
+  metadata:
+    synthetic: true
+    drill_id: "${DRILL_ID}"
+    scenario: "${SCENARIO_NAME}"
+    generated_at: "${TIMESTAMP}"
+
+# Validation
+validation:
+  # Verify event was detected
+  detection_verification:
+    enabled: true
+    timeout_seconds: 300
+    retry_count: 3
+    retry_delay_seconds: 10
+    
+  # Verify alert was raised
+  alert_verification:
+    enabled: true
+    check_severity: true
+    check_risk_score: true
+    
+  # Record results
+  results_recording:
+    enabled: true
+    destination: evidence_ledger
+    include_full_event: true

@@ -1,0 +1,131 @@
+# Guardian Shield Configuration
+# Orchestrator + Agent Defaults
+
+orchestrator:
+  name: shield-orchestrator
+  replicas: 2
+  image:
+    repository: cryptohound/shield-orchestrator
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+  governance:
+    enabled: true
+    approvalRequired: true
+    minApprovers: 2
+
+agents:
+  fraudMonitor:
+    enabled: true
+    replicas: 3
+    alertThresholds:
+      critical: 0.95
+      high: 0.8
+      medium: 0.6
+      low: 0.4
+    scanInterval: "30s"
+    
+  evidenceAgent:
+    enabled: true
+    replicas: 2
+    storage:
+      type: "append-only"
+      hashAlgorithm: "SHA256"
+      signatureRequired: true
+      anchorToChain: true
+    retention:
+      days: 2555  # 7 years for regulatory compliance
+      
+  reportExporter:
+    enabled: true
+    replicas: 1
+    formats:
+      - pdfa
+      - json
+      - csv
+    schedule: "0 6 * * 1"  # Weekly on Monday at 06:00 UTC
+    destinations:
+      - type: "s3"
+        bucket: "compliance-reports"
+      - type: "email"
+        recipients: ["compliance@cryptohound.io"]
+
+alerts:
+  channels:
+    - name: "regulator-critical"
+      type: "webhook"
+      severity: ["critical"]
+    - name: "investor-high"
+      type: "email"
+      severity: ["critical", "high"]
+    - name: "operations"
+      type: "slack"
+      severity: ["critical", "high", "medium"]
+
+evidence:
+  ledger:
+    type: "append-only"
+    hashChaining: true
+    signatureAlgorithm: "ECDSA-P256"
+    anchorChain: "BSC"
+    anchorInterval: "1h"
+  verification:
+    enabled: true
+    publicKeyPath: "/keys/verify.pub"
+    
+portal:
+  regulator:
+    enabled: true
+    readOnly: true
+    features:
+      - query
+      - verification
+      - bundleExport
+  investor:
+    enabled: true
+    dashboardAccess: true
+    
+drills:
+  synthetic:
+    enabled: true
+    schedule: "0 */4 * * *"  # Every 4 hours
+    scenarios:
+      - mixer
+      - exchange
+      - pool
+      - dust
+  slaValidation:
+    enabled: true
+    thresholds:
+      responseTime: "30s"
+      accuracy: 0.99
+      availability: 0.999
+
+security:
+  rbac:
+    enabled: true
+    roles:
+      - name: admin
+        permissions: ["*"]
+      - name: operator
+        permissions: ["read", "execute"]
+      - name: auditor
+        permissions: ["read", "verify"]
+  encryption:
+    atRest: true
+    inTransit: true
+    algorithm: "AES-256-GCM"
+  keyRotation:
+    enabled: true
+    interval: "90d"

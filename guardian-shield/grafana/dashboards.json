@@ -1,0 +1,254 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": "prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.6 },
+              { "color": "orange", "value": 0.8 },
+              { "color": "red", "value": 0.95 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "title": "Fraud Risk Score",
+      "type": "gauge"
+    },
+    {
+      "datasource": "prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": []
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(fraud_events_total[5m])) by (severity)",
+          "legendFormat": "{{ severity }}"
+        }
+      ],
+      "title": "Fraud Events by Severity",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": []
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "id": 3,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "right" },
+        "pieType": "pie"
+      },
+      "targets": [
+        {
+          "expr": "sum(fraud_events_total) by (type)",
+          "legendFormat": "{{ type }}"
+        }
+      ],
+      "title": "Fraud Events by Type",
+      "type": "piechart"
+    },
+    {
+      "datasource": "prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.99 },
+              { "color": "green", "value": 0.999 }
+            ]
+          },
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 8 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "shield_sla_compliance_ratio"
+        }
+      ],
+      "title": "SLA Compliance",
+      "type": "stat"
+    },
+    {
+      "datasource": "prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 8 },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "expr": "evidence_ledger_entries_total"
+        }
+      ],
+      "title": "Evidence Entries",
+      "type": "stat"
+    },
+    {
+      "datasource": "prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 8 },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "expr": "blockchain_anchors_total"
+        }
+      ],
+      "title": "Blockchain Anchors",
+      "type": "stat"
+    },
+    {
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "id": 7,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "targets": [
+        {
+          "expr": "rate(drill_executions_total[1h])",
+          "legendFormat": "Executions"
+        },
+        {
+          "expr": "rate(drill_successes_total[1h])",
+          "legendFormat": "Successes"
+        }
+      ],
+      "title": "Synthetic Drill Results",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "id": 8,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(alert_response_time_bucket[5m]))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(alert_response_time_bucket[5m]))",
+          "legendFormat": "p99"
+        }
+      ],
+      "title": "Alert Response Time",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["guardian-shield", "fraud", "compliance"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "utc",
+  "title": "Guardian Shield - Fraud & Drill Dashboard",
+  "uid": "guardian-shield-main",
+  "version": 1,
+  "weekStart": ""
+}
