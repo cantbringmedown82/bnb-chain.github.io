@@ -10,11 +10,11 @@ The following flowchart documents the sovereign incident response process, estab
 
 ```mermaid
 flowchart LR
-    classDef detect fill:#1E3A5F,color:white,font-family:Times New Roman
-    classDef respond fill:#8B0000,color:white,font-family:Times New Roman
-    classDef recover fill:#228B22,color:white,font-family:Times New Roman
-    classDef audit fill:#4B0082,color:white,font-family:Times New Roman
-    classDef memorial fill:#FFD700,color:black,font-family:Times New Roman,stroke-width:2px,stroke:#DAA520
+    classDef detect fill:#1E3A5F,color:white
+    classDef respond fill:#8B0000,color:white
+    classDef recover fill:#228B22,color:white
+    classDef audit fill:#4B0082,color:white
+    classDef memorial fill:#FFD700,color:black,stroke-width:2px,stroke:#DAA520
 
     D[Detection<br/>Latency < 5 min<br/>Artifact: Incident Report<br/>R: SOC, A: CISO]:::detect
     R[Response<br/>MTTR < 30 min<br/>Artifact: Response Log<br/>R: IR Team, A: CISO]:::respond
