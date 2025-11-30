@@ -1,4 +1,7 @@
-site/
+site/*
+!site/backend/
+site/backend/*
+!site/backend/server.js
 
 .idea/
 
