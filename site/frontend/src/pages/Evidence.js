@@ -31,7 +31,7 @@ export default function Evidence() {
         <iframe
           title="Grafana Dashboard"
           src={process.env.REACT_APP_GRAFANA_URL}
-          width="100%" height="600" frameBorder="0"
+          width="100%" height="600" style={{ border: 0 }}
         />
       </div>
     </div>
