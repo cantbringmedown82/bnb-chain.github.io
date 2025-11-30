@@ -6,7 +6,14 @@ const path = require('path');
 const Stripe = require('stripe');
 
 const app = express();
-const stripe = Stripe(process.env.STRIPE_SECRET || '');
+
+// Stripe initialization - will fail gracefully if not configured
+const stripeSecret = process.env.STRIPE_SECRET;
+const stripe = stripeSecret ? Stripe(stripeSecret) : null;
+
+if (!stripeSecret) {
+  console.warn('STRIPE_SECRET not configured - Stripe features will be disabled');
+}
 
 const EVIDENCE_PATH = path.join(__dirname, 'deploy', 'reports', 'compliance-evidence-index.json');
 let writeQueue = Promise.resolve();
@@ -66,6 +73,9 @@ app.get('/evidence-index', async (req, res) => {
 const router = express.Router();
 
 router.post('/create-checkout-session', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ error: 'Stripe not configured' });
+  }
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -82,10 +92,20 @@ router.post('/create-checkout-session', async (req, res) => {
 });
 
 app.post('/webhook', bodyParser.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) {
+    return res.status(503).send('Stripe not configured');
+  }
+
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error('STRIPE_WEBHOOK_SECRET not configured');
+    return res.status(500).send('Webhook secret not configured');
+  }
+
   const sig = req.headers['stripe-signature'];
   let event;
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err) {
     console.error('Webhook signature verification failed', err && err.message);
     return res.status(400).send(`Webhook Error: ${err && err.message}`);

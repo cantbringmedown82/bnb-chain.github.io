@@ -9,15 +9,25 @@ import { NormalizedMetrics } from './metricsNormalizer';
 import { sendSlackMessage, sendEmail, generatePDF } from './notifiers';
 
 /**
- * Available notification channels
+ * Available notification channels (excluding 'all')
  */
-export type NotificationChannel = 'slack' | 'email' | 'pdf' | 'all';
+export const NOTIFICATION_CHANNELS = ['slack', 'email', 'pdf'] as const;
+
+/**
+ * Single notification channel type
+ */
+export type SingleChannel = typeof NOTIFICATION_CHANNELS[number];
+
+/**
+ * Available notification channels including 'all'
+ */
+export type NotificationChannel = SingleChannel | 'all';
 
 /**
  * Result of a dispatch operation
  */
 export interface DispatchResult {
-  channel: NotificationChannel;
+  channel: SingleChannel;
   success: boolean;
   error?: string;
   timestamp: string;
@@ -36,7 +46,7 @@ export async function dispatchDigest(
   metrics: NormalizedMetrics
 ): Promise<DispatchResult[]> {
   const results: DispatchResult[] = [];
-  const channels = channel === 'all' ? ['slack', 'email', 'pdf'] as const : [channel];
+  const channels: readonly SingleChannel[] = channel === 'all' ? NOTIFICATION_CHANNELS : [channel as SingleChannel];
 
   for (const ch of channels) {
     const result: DispatchResult = {

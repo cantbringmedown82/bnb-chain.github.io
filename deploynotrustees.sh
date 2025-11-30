@@ -193,7 +193,9 @@ else
     if npm test 2>/dev/null; then
       log_info "Tests passed"
     else
-      log_warn "Tests failed or no tests configured - continuing"
+      log_error "Tests failed - aborting deployment"
+      log_error "Use --skip-tests to bypass test failures (not recommended)"
+      exit 1
     fi
   fi
 fi
