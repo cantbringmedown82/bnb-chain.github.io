@@ -56,8 +56,8 @@ npm --version
 
 ```bash
 # Clone repository
-git clone https://github.com/cryptohound/guardian-shield-portal.git
-cd guardian-shield-portal
+git clone https://github.com/cryptohound/guardian-shield.git
+cd guardian-shield
 
 # Install dependencies
 npm install

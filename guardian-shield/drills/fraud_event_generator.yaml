@@ -7,6 +7,42 @@
 version: "1.0"
 name: fraud-event-generator
 
+# ============================================================================
+# TEMPLATE VARIABLE REFERENCE
+# ============================================================================
+#
+# Template variables are resolved at runtime by the drill runner:
+#
+# Address Generation:
+#   {{random_address}}       - Generates a random Ethereum address (0x + 40 hex chars)
+#   {{linked_address}}       - Generates an address linked to the previous random_address
+#                              (same owner simulation for wash trading scenarios)
+#   {{known_mixer_address}}  - Selects from a predefined list of known mixer contracts
+#
+# Transaction Generation:
+#   {{random_tx_hash}}       - Generates a random transaction hash (0x + 64 hex chars)
+#
+# Value Generation:
+#   {{random_int(min, max)}} - Generates a random integer in the specified range
+#   {{random_float(min, max)}} - Generates a random float in the specified range
+#
+# String Generation:
+#   {{random_token_symbol}}  - Generates a random 3-5 character token symbol
+#   {{random_scam_token_name}} - Selects from common scam token name patterns
+#   {{random_phishing_domain}} - Generates a phishing domain pattern
+#   {{random_dex}}           - Selects a random DEX name (uniswap, sushiswap, etc.)
+#   {{random_pair}}          - Generates a random trading pair (e.g., "ETH/USDC")
+#   {{random_flash_loan_provider}} - Selects from flash loan providers (aave, dydx, etc.)
+#
+# Context Variables:
+#   {{run_id}}               - Unique identifier for the current drill run
+#   {{timestamp}}            - Current ISO 8601 timestamp
+#   {{scenario.id}}          - ID of the current scenario being executed
+#   {{hops_count}}           - Number of hops in multi-hop scenarios
+#   {{same_as_front}}        - References the same address as the 'front' field
+#
+# ============================================================================
+
 defaults:
   environment: drill
   evidence_prefix: "DRILL-"
