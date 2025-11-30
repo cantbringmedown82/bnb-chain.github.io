@@ -1,0 +1,436 @@
+openapi: "3.0.3"
+info:
+  title: Guardian Shield Evidence Ledger API
+  version: "1.0.0"
+  description: |
+    API specification for the append-only evidence ledger.
+    Provides endpoints for append, verify, query, and export operations.
+  contact:
+    name: Crypto Hound Security Team
+    email: security@cryptohound.io
+  license:
+    name: Proprietary
+    url: https://cryptohound.io/license
+
+servers:
+  - url: https://api.guardian-shield.cryptohound.io/v1
+    description: Production
+  - url: https://api.staging.guardian-shield.cryptohound.io/v1
+    description: Staging
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: evidence
+    description: Evidence ledger operations
+  - name: verification
+    description: Integrity verification
+  - name: export
+    description: Export and reporting
+
+paths:
+  /evidence:
+    post:
+      summary: Append new evidence entry
+      description: |
+        Creates a new append-only evidence entry in the ledger.
+        The entry is automatically signed and hash-chained.
+      operationId: appendEvidence
+      tags:
+        - evidence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - payload
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - fraud_event
+                    - alert_triggered
+                    - report_generated
+                    - drill_executed
+                    - configuration_change
+                severity:
+                  type: string
+                  enum: [critical, high, medium, low, info]
+                payload:
+                  type: object
+                  description: Event-specific data
+      responses:
+        "201":
+          description: Evidence entry created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  sequence:
+                    type: integer
+                  hash:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+        "400":
+          description: Invalid request
+        "401":
+          description: Unauthorized
+        "500":
+          description: Internal server error
+
+    get:
+      summary: Query evidence entries
+      description: Retrieve evidence entries with optional filters
+      operationId: queryEvidence
+      tags:
+        - evidence
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+        - name: from_timestamp
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_timestamp
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: from_sequence
+          in: query
+          schema:
+            type: integer
+        - name: to_sequence
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Pagination cursor
+      responses:
+        "200":
+          description: Evidence entries retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EvidenceEntry"
+                  next_cursor:
+                    type: string
+                    nullable: true
+                  total_count:
+                    type: integer
+        "401":
+          description: Unauthorized
+
+  /evidence/{id}:
+    get:
+      summary: Get evidence entry by ID
+      operationId: getEvidence
+      tags:
+        - evidence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Evidence entry found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceEntry"
+        "404":
+          description: Entry not found
+        "401":
+          description: Unauthorized
+
+  /evidence/sequence/{sequence}:
+    get:
+      summary: Get evidence entry by sequence number
+      operationId: getEvidenceBySequence
+      tags:
+        - evidence
+      parameters:
+        - name: sequence
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Evidence entry found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvidenceEntry"
+        "404":
+          description: Entry not found
+
+  /verify:
+    post:
+      summary: Verify ledger integrity
+      description: |
+        Performs comprehensive integrity verification including:
+        - Hash chain validation
+        - Signature verification
+        - Blockchain anchor confirmation
+      operationId: verifyLedger
+      tags:
+        - verification
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                from_sequence:
+                  type: integer
+                  description: Start sequence for verification
+                to_sequence:
+                  type: integer
+                  description: End sequence for verification
+                verify_anchors:
+                  type: boolean
+                  default: true
+                  description: Include blockchain anchor verification
+      responses:
+        "200":
+          description: Verification complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationResult"
+        "500":
+          description: Verification failed
+
+  /verify/{hash}:
+    get:
+      summary: Verify specific entry by hash
+      operationId: verifyByHash
+      tags:
+        - verification
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-f0-9]{64}$"
+      responses:
+        "200":
+          description: Entry verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exists:
+                    type: boolean
+                  valid:
+                    type: boolean
+                  entry:
+                    $ref: "#/components/schemas/EvidenceEntry"
+        "404":
+          description: Entry not found
+
+  /export:
+    post:
+      summary: Export evidence entries
+      description: |
+        Exports evidence entries in the specified format.
+        Supported formats: JSON, PDF/A, CSV
+      operationId: exportEvidence
+      tags:
+        - export
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - format
+              properties:
+                format:
+                  type: string
+                  enum: [json, pdfa, csv]
+                from_sequence:
+                  type: integer
+                to_sequence:
+                  type: integer
+                from_timestamp:
+                  type: string
+                  format: date-time
+                to_timestamp:
+                  type: string
+                  format: date-time
+                include_signatures:
+                  type: boolean
+                  default: true
+                include_anchors:
+                  type: boolean
+                  default: true
+      responses:
+        "202":
+          description: Export initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  export_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [pending, processing]
+                  estimated_completion:
+                    type: string
+                    format: date-time
+        "400":
+          description: Invalid request
+
+  /export/{export_id}:
+    get:
+      summary: Get export status and download
+      operationId: getExport
+      tags:
+        - export
+      parameters:
+        - name: export_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Export ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  export_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [pending, processing, completed, failed]
+                  download_url:
+                    type: string
+                    format: uri
+                    nullable: true
+                  manifest:
+                    $ref: "#/components/schemas/ExportManifest"
+        "404":
+          description: Export not found
+
+  /metadata:
+    get:
+      summary: Get ledger metadata
+      operationId: getLedgerMetadata
+      tags:
+        - evidence
+      responses:
+        "200":
+          description: Ledger metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerMetadata"
+
+  /anchor:
+    post:
+      summary: Create blockchain anchor
+      description: |
+        Anchors the current ledger state to a blockchain.
+        Creates an immutable proof of the ledger's state at a point in time.
+      operationId: createAnchor
+      tags:
+        - verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - chain
+              properties:
+                chain:
+                  type: string
+                  enum: [ethereum, bsc, polygon]
+                up_to_sequence:
+                  type: integer
+                  description: Anchor up to this sequence (default: latest)
+      responses:
+        "202":
+          description: Anchor initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anchor_id:
+                    type: string
+                  status:
+                    type: string
+                  estimated_confirmation:
+                    type: string
+                    format: date-time
+        "400":
+          description: Invalid request
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    EvidenceEntry:
+      $ref: "./ledger_schema.yaml#/components/schemas/EvidenceEntry"
+    
+    VerificationResult:
+      $ref: "./ledger_schema.yaml#/components/schemas/VerificationResult"
+    
+    ExportManifest:
+      $ref: "./ledger_schema.yaml#/components/schemas/ExportManifest"
+    
+    LedgerMetadata:
+      $ref: "./ledger_schema.yaml#/components/schemas/LedgerMetadata"
