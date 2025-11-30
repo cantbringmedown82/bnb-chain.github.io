@@ -1,0 +1,319 @@
+# Guardian Shield CI/CD Pipeline - GitHub Actions
+
+name: Guardian Shield CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['v*']
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}/guardian-shield
+
+jobs:
+  lint:
+    name: Lint & Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install Python dependencies
+        run: |
+          pip install ruff mypy
+          
+      - name: Install Node dependencies
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: Lint Python
+        run: |
+          ruff check backend/
+          mypy backend/ --ignore-missing-imports
+          
+      - name: Lint TypeScript
+        run: |
+          cd frontend
+          npm run lint
+          npm run type-check
+
+  test-backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: shield_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -e ".[test]"
+          
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/shield_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret
+        run: |
+          cd backend
+          pytest --cov=app --cov-report=xml -v
+          
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: backend/coverage.xml
+          flags: backend
+
+  test-frontend:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+          
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: Run tests
+        run: |
+          cd frontend
+          npm run test -- --coverage
+          
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: frontend/coverage/lcov.info
+          flags: frontend
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/python
+            p/typescript
+
+  build:
+    name: Build Images
+    runs-on: ubuntu-latest
+    needs: [lint, test-backend, test-frontend, security-scan]
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+      
+    strategy:
+      matrix:
+        component:
+          - orchestrator
+          - evidence-api
+          - fraud-monitor
+          - report-exporter
+          - frontend
+          
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.component }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix=
+            
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/${{ matrix.component }}.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging.shield.cryptohound.io
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        
+      - name: Configure kubectl
+        uses: azure/setup-kubectl@v3
+        
+      - name: Set kubeconfig
+        run: |
+          echo "${{ secrets.STAGING_KUBECONFIG }}" | base64 -d > kubeconfig
+          
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install guardian-shield ./helm \
+            --namespace guardian-shield \
+            --create-namespace \
+            --kubeconfig kubeconfig \
+            -f ./helm/values-staging.yaml \
+            --set global.image.tag=${{ github.sha }} \
+            --wait --timeout 10m
+            
+      - name: Run smoke tests
+        run: |
+          ./scripts/smoke-test.sh staging
+          
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "Staging deployment ${{ job.status }}: ${{ github.ref_name }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://shield.cryptohound.io
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        
+      - name: Configure kubectl
+        uses: azure/setup-kubectl@v3
+        
+      - name: Set kubeconfig
+        run: |
+          echo "${{ secrets.PRODUCTION_KUBECONFIG }}" | base64 -d > kubeconfig
+          
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install guardian-shield ./helm \
+            --namespace guardian-shield \
+            --kubeconfig kubeconfig \
+            -f ./helm/values-production.yaml \
+            --set global.image.tag=${{ github.ref_name }} \
+            --wait --timeout 15m
+            
+      - name: Run smoke tests
+        run: |
+          ./scripts/smoke-test.sh production
+          
+      - name: Create release notes
+        uses: softprops/action-gh-release@v1
+        with:
+          generate_release_notes: true
+          
+      - name: Notify Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "Production deployment ${{ job.status }}: ${{ github.ref_name }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

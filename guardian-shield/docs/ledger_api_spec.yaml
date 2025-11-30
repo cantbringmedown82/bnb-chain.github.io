@@ -1,0 +1,606 @@
+# Evidence Ledger API Specification
+
+openapi: 3.0.3
+info:
+  title: Guardian Shield Evidence Ledger API
+  description: |
+    API for managing the append-only evidence ledger in Guardian Shield.
+    All evidence records are cryptographically signed and hash-chained.
+  version: 1.0.0
+  contact:
+    name: Guardian Shield Team
+    email: shield@cryptohound.io
+  license:
+    name: Proprietary
+    
+servers:
+  - url: https://api.shield.cryptohound.io/v1
+    description: Production
+  - url: https://api.shield-staging.cryptohound.io/v1
+    description: Staging
+
+security:
+  - BearerAuth: []
+  - mTLS: []
+
+tags:
+  - name: Evidence
+    description: Evidence entry operations
+  - name: Verification
+    description: Integrity verification operations
+  - name: Anchors
+    description: Blockchain anchor operations
+  - name: Export
+    description: Evidence export operations
+
+paths:
+  /evidence:
+    get:
+      tags: [Evidence]
+      summary: List evidence entries
+      description: |
+        Retrieve a paginated list of evidence entries.
+        Results are ordered by sequence number (newest first by default).
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [fraud_event, alert, drill_result, compliance_report, audit_action, anchor_proof]
+        - name: from_timestamp
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_timestamp
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [critical, high, medium, low]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Pagination cursor from previous response
+      responses:
+        '200':
+          description: Evidence entries retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+          
+    post:
+      tags: [Evidence]
+      summary: Append evidence entry
+      description: |
+        Append a new evidence entry to the ledger.
+        The entry will be automatically hash-chained and signed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvidenceRequest'
+      responses:
+        '201':
+          description: Evidence entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Sequence conflict - retry with latest sequence
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /evidence/{id}:
+    get:
+      tags: [Evidence]
+      summary: Get evidence entry by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: include_proof
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Include Merkle proof if anchored
+      responses:
+        '200':
+          description: Evidence entry retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceEntry'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /evidence/by-hash/{hash}:
+    get:
+      tags: [Evidence]
+      summary: Get evidence entry by content hash
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-f0-9]{64}$'
+      responses:
+        '200':
+          description: Evidence entry retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceEntry'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /verification/chain:
+    post:
+      tags: [Verification]
+      summary: Verify hash chain integrity
+      description: |
+        Verify the integrity of the hash chain for a range of entries.
+        Returns verification status and any detected anomalies.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                from_sequence:
+                  type: integer
+                  minimum: 1
+                to_sequence:
+                  type: integer
+              required:
+                - from_sequence
+                - to_sequence
+      responses:
+        '200':
+          description: Verification complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChainVerificationResult'
+
+  /verification/signature/{id}:
+    get:
+      tags: [Verification]
+      summary: Verify entry signature
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Signature verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignatureVerificationResult'
+
+  /verification/anchor/{tx_hash}:
+    get:
+      tags: [Verification]
+      summary: Verify blockchain anchor
+      description: |
+        Verify that a blockchain anchor transaction contains the expected
+        Merkle root and that entries can be proven against it.
+      parameters:
+        - name: tx_hash
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chain
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [BSC, ETH, BTC]
+      responses:
+        '200':
+          description: Anchor verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnchorVerificationResult'
+
+  /anchors:
+    get:
+      tags: [Anchors]
+      summary: List blockchain anchors
+      parameters:
+        - name: chain
+          in: query
+          schema:
+            type: string
+            enum: [BSC, ETH, BTC]
+        - name: from_timestamp
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Anchors retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnchorListResponse'
+
+    post:
+      tags: [Anchors]
+      summary: Create blockchain anchor
+      description: |
+        Trigger creation of a new blockchain anchor for unanchored entries.
+        This operation may take time depending on blockchain confirmation.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                chain:
+                  type: string
+                  enum: [BSC, ETH, BTC]
+                  default: BSC
+      responses:
+        '202':
+          description: Anchor creation initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anchor_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [pending, submitted, confirming]
+                  entries_count:
+                    type: integer
+
+  /export:
+    post:
+      tags: [Export]
+      summary: Export evidence bundle
+      description: |
+        Export evidence entries as a signed bundle.
+        Supports multiple formats including PDF/A for regulatory compliance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '202':
+          description: Export job started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [queued, processing]
+
+  /export/{job_id}:
+    get:
+      tags: [Export]
+      summary: Get export job status
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Export job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJobStatus'
+
+  /export/{job_id}/download:
+    get:
+      tags: [Export]
+      summary: Download export bundle
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Export bundle
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: object
+            application/zip:
+              schema:
+                type: string
+                format: binary
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    mTLS:
+      type: mutualTLS
+
+  schemas:
+    EvidenceEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        type:
+          type: string
+        content_hash:
+          type: string
+        previous_hash:
+          type: string
+        signature:
+          type: string
+        content:
+          type: object
+        metadata:
+          type: object
+        anchors:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlockchainAnchor'
+
+    CreateEvidenceRequest:
+      type: object
+      required:
+        - type
+        - content
+      properties:
+        type:
+          type: string
+          enum: [fraud_event, alert, drill_result, compliance_report, audit_action]
+        content:
+          type: object
+        metadata:
+          type: object
+
+    EvidenceListResponse:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceEntry'
+        total:
+          type: integer
+        cursor:
+          type: string
+
+    BlockchainAnchor:
+      type: object
+      properties:
+        anchor_id:
+          type: string
+          format: uuid
+        chain:
+          type: string
+        tx_hash:
+          type: string
+        block_number:
+          type: integer
+        anchored_at:
+          type: string
+          format: date-time
+        merkle_root:
+          type: string
+
+    ChainVerificationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        entries_verified:
+          type: integer
+        anomalies:
+          type: array
+          items:
+            type: object
+            properties:
+              sequence:
+                type: integer
+              issue:
+                type: string
+
+    SignatureVerificationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        signer_key_id:
+          type: string
+        signed_at:
+          type: string
+          format: date-time
+
+    AnchorVerificationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        chain:
+          type: string
+        tx_hash:
+          type: string
+        merkle_root:
+          type: string
+        confirmations:
+          type: integer
+        entries_verified:
+          type: integer
+
+    AnchorListResponse:
+      type: object
+      properties:
+        anchors:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlockchainAnchor'
+        total:
+          type: integer
+
+    ExportRequest:
+      type: object
+      required:
+        - format
+      properties:
+        format:
+          type: string
+          enum: [pdfa, json, csv, zip]
+        filters:
+          type: object
+          properties:
+            types:
+              type: array
+              items:
+                type: string
+            from_timestamp:
+              type: string
+              format: date-time
+            to_timestamp:
+              type: string
+              format: date-time
+        include_signatures:
+          type: boolean
+          default: true
+        include_anchors:
+          type: boolean
+          default: true
+
+    ExportJobStatus:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        format:
+          type: string
+        entries_count:
+          type: integer
+        file_size:
+          type: integer
+        download_url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

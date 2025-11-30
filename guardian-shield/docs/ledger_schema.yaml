@@ -1,0 +1,484 @@
+# Evidence Ledger Schema
+
+## Overview
+
+This document defines the schema for the append-only evidence ledger used by Guardian Shield.
+
+---
+
+## Core Types
+
+### Evidence Entry
+
+```yaml
+EvidenceEntry:
+  type: object
+  required:
+    - id
+    - timestamp
+    - type
+    - content_hash
+    - previous_hash
+    - signature
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier for this entry
+      example: "550e8400-e29b-41d4-a716-446655440000"
+      
+    sequence:
+      type: integer
+      format: int64
+      minimum: 1
+      description: Sequential entry number (monotonically increasing)
+      
+    timestamp:
+      type: string
+      format: date-time
+      description: ISO 8601 timestamp when evidence was recorded
+      example: "2025-01-15T10:30:00.000Z"
+      
+    type:
+      type: string
+      enum:
+        - fraud_event
+        - alert
+        - drill_result
+        - compliance_report
+        - audit_action
+        - anchor_proof
+      description: Category of evidence
+      
+    content_hash:
+      type: string
+      pattern: "^[a-f0-9]{64}$"
+      description: SHA-256 hash of the evidence content
+      
+    previous_hash:
+      type: string
+      pattern: "^[a-f0-9]{64}$"
+      description: Hash of the previous entry (genesis entry uses zeros)
+      
+    signature:
+      type: string
+      description: ECDSA-P256 signature over entry fields
+      
+    content:
+      $ref: "#/EvidenceContent"
+      
+    metadata:
+      $ref: "#/EvidenceMetadata"
+      
+    anchors:
+      type: array
+      items:
+        $ref: "#/BlockchainAnchor"
+```
+
+### Evidence Content
+
+```yaml
+EvidenceContent:
+  type: object
+  description: Actual evidence data (type-specific)
+  oneOf:
+    - $ref: "#/FraudEventContent"
+    - $ref: "#/AlertContent"
+    - $ref: "#/DrillResultContent"
+    - $ref: "#/ComplianceReportContent"
+    - $ref: "#/AuditActionContent"
+
+FraudEventContent:
+  type: object
+  required:
+    - event_id
+    - severity
+    - risk_score
+    - detection_time
+  properties:
+    event_id:
+      type: string
+      format: uuid
+    severity:
+      type: string
+      enum: [critical, high, medium, low]
+    risk_score:
+      type: number
+      minimum: 0
+      maximum: 1
+    detection_time:
+      type: string
+      format: date-time
+    event_type:
+      type: string
+      enum: [mixer, exchange, pool, dust, watchlist, anomaly]
+    details:
+      type: object
+      additionalProperties: true
+    addresses_involved:
+      type: array
+      items:
+        type: string
+    transaction_hashes:
+      type: array
+      items:
+        type: string
+
+AlertContent:
+  type: object
+  required:
+    - alert_id
+    - alert_name
+    - severity
+    - fired_at
+  properties:
+    alert_id:
+      type: string
+    alert_name:
+      type: string
+    severity:
+      type: string
+      enum: [critical, high, medium, low]
+    fired_at:
+      type: string
+      format: date-time
+    resolved_at:
+      type: string
+      format: date-time
+    labels:
+      type: object
+      additionalProperties:
+        type: string
+    annotations:
+      type: object
+      additionalProperties:
+        type: string
+
+DrillResultContent:
+  type: object
+  required:
+    - drill_id
+    - scenario
+    - executed_at
+    - success
+  properties:
+    drill_id:
+      type: string
+      format: uuid
+    scenario:
+      type: string
+      enum: [mixer, exchange, pool, dust]
+    executed_at:
+      type: string
+      format: date-time
+    success:
+      type: boolean
+    detection_time_ms:
+      type: integer
+    expected_alerts:
+      type: integer
+    actual_alerts:
+      type: integer
+    failure_reason:
+      type: string
+
+ComplianceReportContent:
+  type: object
+  required:
+    - report_id
+    - report_type
+    - period_start
+    - period_end
+    - generated_at
+  properties:
+    report_id:
+      type: string
+      format: uuid
+    report_type:
+      type: string
+      enum: [weekly, monthly, quarterly, annual, ad_hoc]
+    period_start:
+      type: string
+      format: date-time
+    period_end:
+      type: string
+      format: date-time
+    generated_at:
+      type: string
+      format: date-time
+    pdf_hash:
+      type: string
+      pattern: "^[a-f0-9]{64}$"
+    metrics_summary:
+      type: object
+      additionalProperties:
+        type: number
+
+AuditActionContent:
+  type: object
+  required:
+    - action_id
+    - action_type
+    - actor
+    - performed_at
+  properties:
+    action_id:
+      type: string
+      format: uuid
+    action_type:
+      type: string
+      enum: [login, logout, config_change, role_change, export, query]
+    actor:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [user, service]
+        id:
+          type: string
+        ip_address:
+          type: string
+    performed_at:
+      type: string
+      format: date-time
+    resource:
+      type: object
+      properties:
+        type:
+          type: string
+        id:
+          type: string
+    result:
+      type: string
+      enum: [success, failure, denied]
+    details:
+      type: object
+      additionalProperties: true
+```
+
+### Evidence Metadata
+
+```yaml
+EvidenceMetadata:
+  type: object
+  properties:
+    source:
+      type: string
+      description: System that generated the evidence
+      example: "fraud-monitor-agent"
+      
+    source_version:
+      type: string
+      description: Version of the source system
+      example: "1.2.3"
+      
+    tenant_id:
+      type: string
+      description: Multi-tenant identifier (if applicable)
+      
+    classification:
+      type: string
+      enum: [public, internal, confidential, restricted]
+      default: confidential
+      
+    retention:
+      type: object
+      properties:
+        days:
+          type: integer
+          minimum: 365
+          default: 2555  # 7 years
+        legal_hold:
+          type: boolean
+          default: false
+          
+    tags:
+      type: array
+      items:
+        type: string
+```
+
+### Blockchain Anchor
+
+```yaml
+BlockchainAnchor:
+  type: object
+  required:
+    - anchor_id
+    - chain
+    - tx_hash
+    - anchored_at
+    - merkle_root
+  properties:
+    anchor_id:
+      type: string
+      format: uuid
+      description: Unique identifier for this anchor
+      
+    chain:
+      type: string
+      enum: [BSC, ETH, BTC]
+      description: Blockchain where anchor was recorded
+      
+    tx_hash:
+      type: string
+      description: Transaction hash on the blockchain
+      example: "0x1234567890abcdef..."
+      
+    block_number:
+      type: integer
+      format: int64
+      description: Block number containing the anchor transaction
+      
+    anchored_at:
+      type: string
+      format: date-time
+      description: Timestamp when anchor was confirmed
+      
+    merkle_root:
+      type: string
+      pattern: "^[a-f0-9]{64}$"
+      description: Merkle root of the anchored evidence batch
+      
+    entries_included:
+      type: array
+      items:
+        type: string
+        format: uuid
+      description: Evidence entry IDs included in this anchor
+      
+    proof:
+      $ref: "#/MerkleProof"
+
+MerkleProof:
+  type: object
+  properties:
+    leaf_hash:
+      type: string
+      pattern: "^[a-f0-9]{64}$"
+    path:
+      type: array
+      items:
+        type: object
+        properties:
+          hash:
+            type: string
+            pattern: "^[a-f0-9]{64}$"
+          position:
+            type: string
+            enum: [left, right]
+```
+
+---
+
+## Integrity Verification
+
+### Hash Chain Verification
+
+```yaml
+HashChainVerification:
+  algorithm: SHA-256
+  
+  entry_hash_input:
+    fields:
+      - id
+      - sequence
+      - timestamp
+      - type
+      - content_hash
+      - previous_hash
+    format: "canonical JSON"
+    
+  genesis_entry:
+    previous_hash: "0000000000000000000000000000000000000000000000000000000000000000"
+    
+  verification_procedure:
+    1. Retrieve entry N
+    2. Compute expected_hash = SHA256(canonical_json(entry_N))
+    3. Retrieve entry N+1
+    4. Verify entry_N+1.previous_hash == expected_hash
+    5. Repeat for all entries
+```
+
+### Signature Verification
+
+```yaml
+SignatureVerification:
+  algorithm: ECDSA-P256
+  
+  signature_input:
+    fields:
+      - id
+      - sequence
+      - timestamp
+      - type
+      - content_hash
+      - previous_hash
+    format: "canonical JSON"
+    
+  public_key_retrieval:
+    endpoint: "/keys/signing/public"
+    rotation_aware: true
+    key_id_in_entry: true
+```
+
+---
+
+## Indexes
+
+### Required Indexes
+
+```yaml
+indexes:
+  - name: entries_by_id
+    keys: [id]
+    unique: true
+    
+  - name: entries_by_sequence
+    keys: [sequence]
+    unique: true
+    
+  - name: entries_by_timestamp
+    keys: [timestamp]
+    
+  - name: entries_by_type
+    keys: [type, timestamp]
+    
+  - name: entries_by_content_hash
+    keys: [content_hash]
+    
+  - name: anchors_by_tx_hash
+    keys: [anchors.tx_hash]
+```
+
+---
+
+## Retention & Archival
+
+### Retention Rules
+
+```yaml
+retention:
+  default_retention_days: 2555  # 7 years
+  
+  legal_hold:
+    enabled: true
+    indefinite: true
+    requires_authorization: true
+    
+  archival:
+    after_days: 365
+    storage_tier: glacier
+    maintain_indexes: true
+    
+  deletion:
+    soft_delete_first: true
+    hard_delete_after_days: 30
+    requires_approval: true
+```
+
+---
+
+**Schema Version:** 1.0  
+**Last Updated:** {{DATE}}

@@ -1,0 +1,268 @@
+# Guardian Shield - Drill Schedule Configuration
+# Automated synthetic drill scheduling
+
+version: "1.0"
+
+# Global settings
+global:
+  timezone: "UTC"
+  default_timeout_minutes: 30
+  notification_channels:
+    - type: slack
+      channel: "#shield-drills"
+    - type: email
+      recipients:
+        - security-team@cryptohound.io
+        
+  # Conditions that pause scheduled drills
+  pause_conditions:
+    - high_alert_count: 10
+    - critical_alert_active: true
+    - maintenance_window: true
+    - incident_in_progress: true
+
+# Drill schedules
+schedules:
+  # High frequency - every 4 hours
+  frequent:
+    name: "Frequent Validation Drills"
+    cron: "0 */4 * * *"
+    enabled: true
+    
+    drills:
+      - scenario: mixer
+        weight: 0.4
+        parameters:
+          transaction_count: 10
+          time_window_minutes: 30
+          
+      - scenario: dust
+        weight: 0.3
+        parameters:
+          dust_transaction_count: 100
+          
+      - scenario: exchange
+        weight: 0.3
+        parameters:
+          volume_spike_multiplier: 5.0
+          
+    rotation: random_weighted  # random_weighted | round_robin | all
+    max_concurrent: 1
+    
+  # Daily comprehensive
+  daily:
+    name: "Daily Comprehensive Drills"
+    cron: "0 2 * * *"
+    enabled: true
+    
+    drills:
+      - scenario: mixer
+        parameters:
+          transaction_count: 15
+          hop_count: 5
+          
+      - scenario: exchange
+        parameters:
+          volume_spike_multiplier: 8.0
+          duration_minutes: 60
+          
+      - scenario: pool
+        parameters:
+          flash_loan_amount: 1000000
+          
+      - scenario: dust
+        parameters:
+          dust_transaction_count: 200
+          
+    rotation: all
+    max_concurrent: 2
+    delay_between_seconds: 300
+    
+  # Weekly full suite
+  weekly:
+    name: "Weekly Full Suite"
+    cron: "0 3 * * 0"  # Sunday 3 AM
+    enabled: true
+    
+    drills:
+      - scenario: mixer
+        parameters:
+          transaction_count: 20
+          hop_count: 7
+          time_window_minutes: 60
+          
+      - scenario: exchange
+        parameters:
+          volume_spike_multiplier: 10.0
+          duration_minutes: 120
+          account_count: 50
+          
+      - scenario: pool
+        parameters:
+          flash_loan_amount: 10000000
+          sandwich_attack:
+            enabled: true
+          rug_pull:
+            enabled: true
+            
+      - scenario: dust
+        parameters:
+          dust_transaction_count: 500
+          target_address_count: 100
+          
+      - scenario: watchlist
+        parameters:
+          categories:
+            - sanctions
+            - known_fraudulent
+            - high_risk_jurisdiction
+            
+    rotation: all
+    max_concurrent: 3
+    delay_between_seconds: 600
+    
+    # Extended validation for weekly
+    validation:
+      sla_verification: true
+      accuracy_threshold: 0.99
+      false_positive_threshold: 0.01
+      
+  # Monthly stress test
+  monthly:
+    name: "Monthly Stress Test"
+    cron: "0 4 1 * *"  # 1st of month, 4 AM
+    enabled: true
+    
+    drills:
+      - scenario: mixer
+        count: 5  # Run 5 concurrent mixer drills
+        parameters:
+          transaction_count: 20
+          
+      - scenario: exchange
+        count: 3
+        parameters:
+          volume_spike_multiplier: 10.0
+          
+      - scenario: pool
+        count: 2
+        parameters:
+          flash_loan_amount: 5000000
+          
+    rotation: all
+    max_concurrent: 10
+    
+    # Stress test specific settings
+    stress_test:
+      enabled: true
+      event_rate_per_second: 100
+      duration_minutes: 60
+      measure_degradation: true
+
+# Manual drill configurations
+manual_drills:
+  - name: "quick_mixer"
+    description: "Quick mixer detection test"
+    scenario: mixer
+    parameters:
+      transaction_count: 5
+      time_window_minutes: 10
+      
+  - name: "quick_exchange"
+    description: "Quick exchange anomaly test"
+    scenario: exchange
+    parameters:
+      volume_spike_multiplier: 5.0
+      duration_minutes: 15
+      
+  - name: "critical_pool"
+    description: "Critical pool attack simulation"
+    scenario: pool
+    parameters:
+      flash_loan_amount: 10000000
+      
+  - name: "watchlist_test"
+    description: "Watchlist match verification"
+    scenario: watchlist
+    parameters:
+      categories:
+        - sanctions
+
+# SLA validation
+sla_validation:
+  enabled: true
+  
+  metrics:
+    detection_time:
+      critical_max_seconds: 15
+      high_max_seconds: 30
+      medium_max_seconds: 60
+      low_max_seconds: 120
+      
+    accuracy:
+      true_positive_min: 0.95
+      false_positive_max: 0.05
+      
+    availability:
+      min_uptime_percent: 99.9
+      
+  reporting:
+    frequency: daily
+    destinations:
+      - evidence_ledger
+      - compliance_report
+      
+# Alert settings for drill failures
+alerting:
+  on_drill_failure:
+    enabled: true
+    severity: medium
+    notify:
+      - slack
+      - email
+      
+  on_sla_violation:
+    enabled: true
+    severity: high
+    notify:
+      - slack
+      - email
+      - pagerduty
+      
+  on_multiple_failures:
+    enabled: true
+    threshold: 3
+    window_hours: 24
+    severity: critical
+    notify:
+      - slack
+      - email
+      - pagerduty
+
+# Results storage
+results:
+  storage:
+    type: evidence_ledger
+    retention_days: 365
+    
+  metrics:
+    export_to: prometheus
+    labels:
+      - scenario
+      - result
+      - detection_time
+      
+  reports:
+    generate: true
+    format: json
+    include_in_weekly_report: true
+
+# Maintenance windows
+maintenance_windows:
+  - name: "Weekly Maintenance"
+    cron_start: "0 6 * * 0"  # Sunday 6 AM
+    duration_hours: 4
+    
+  - name: "Monthly Maintenance"
+    cron_start: "0 6 15 * *"  # 15th of month, 6 AM
+    duration_hours: 8
