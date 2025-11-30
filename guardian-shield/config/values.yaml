@@ -1,0 +1,155 @@
+# Guardian Shield — Orchestrator + Agent Defaults
+# Crypto Hound LLC
+
+orchestrator:
+  version: "1.0"
+  namespace: "crypto_hound.shield"
+  replicas: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilization: 70
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+  governance:
+    keyRotation: "quarterly"
+    signatureScheme: "RSA-4096 + GPG"
+    hashAlgorithm: "SHA-256"
+    anchorNetworks:
+      - "Bitcoin"
+      - "Ethereum"
+      - "Filecoin"
+
+agents:
+  fraudMonitor:
+    enabled: true
+    replicas: 2
+    severityLevels:
+      - critical
+      - high
+      - medium
+      - watchlist
+    alertRouting:
+      critical:
+        destinations:
+          - regulator
+          - investor
+          - dashboard
+        slaMinutes: 5
+      high:
+        destinations:
+          - regulator
+          - dashboard
+        slaMinutes: 15
+      medium:
+        destinations:
+          - dashboard
+        slaMinutes: 60
+      watchlist:
+        destinations:
+          - batch_report
+        slaMinutes: 1440
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "256Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+
+  evidenceCollector:
+    enabled: true
+    replicas: 2
+    evidenceTypes:
+      - json
+      - yaml
+      - png
+      - pdfa
+    hashing: "SHA-256"
+    signature: "Crypto Hound LLC GPG"
+    anchor: "blockchain_anchor:enabled"
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "256Mi"
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+
+  reportGenerator:
+    enabled: true
+    replicas: 1
+    formats:
+      - pdfa
+      - json
+    schedule: "0 6 * * MON"  # Weekly Monday 06:00 UTC
+    watermark: "Anchored Evidence — Crypto Hound LLC"
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "2000m"
+        memory: "2Gi"
+
+ledger:
+  appendOnly: true
+  mutability: "none"
+  retention: "permanent"
+  audit: "immutable log, regulator-verifiable"
+  storage:
+    type: "postgresql"
+    connectionPoolSize: 20
+    ssl: true
+
+notifications:
+  regulator:
+    channels:
+      - email
+      - api
+    templates:
+      critical: "critical_alert_template"
+      high: "high_alert_template"
+  investor:
+    channels:
+      - email
+      - webhook
+    templates:
+      critical: "investor_alert_template"
+
+security:
+  authentication:
+    type: "GPG + token"
+    tokenExpiry: "24h"
+  rbac:
+    enabled: true
+    roles:
+      - admin
+      - regulator
+      - auditor
+      - investor
+      - viewer
+  encryption:
+    atRest: true
+    inTransit: true
+    algorithm: "AES-256-GCM"
+
+monitoring:
+  prometheus:
+    enabled: true
+    scrapeInterval: "15s"
+  loki:
+    enabled: true
+    retention: "30d"
+  grafana:
+    enabled: true
+    dashboards:
+      - fraud_events
+      - drill_validation
+      - sla_compliance

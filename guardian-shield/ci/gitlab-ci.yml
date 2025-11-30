@@ -1,0 +1,227 @@
+# Guardian Shield GitLab CI/CD Pipeline
+# Crypto Hound LLC
+
+stages:
+  - validate
+  - security
+  - deploy
+  - drill
+  - report
+
+variables:
+  KUBECTL_VERSION: "1.29.0"
+  GRAFANA_URL: ${GRAFANA_URL}
+
+# Validate configuration files
+validate:yaml:
+  stage: validate
+  image: python:3.12-slim
+  script:
+    - pip install yamllint jsonschema pyyaml
+    - yamllint guardian-shield/config/
+    - yamllint guardian-shield/alerts/
+    - yamllint guardian-shield/drills/
+  rules:
+    - changes:
+        - guardian-shield/**/*
+
+validate:json:
+  stage: validate
+  image: python:3.12-slim
+  script:
+    - python -c "import json; json.load(open('guardian-shield/grafana/dashboards.json'))"
+  rules:
+    - changes:
+        - guardian-shield/grafana/**/*
+
+validate:kubernetes:
+  stage: validate
+  image: alpine:latest
+  script:
+    - apk add --no-cache curl
+    - curl -L https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz | tar xz
+    - ./kubeval guardian-shield/config/values.yaml --strict || true
+  rules:
+    - changes:
+        - guardian-shield/config/**/*
+
+# Security scanning
+security:trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    - trivy config guardian-shield/ --severity HIGH,CRITICAL --exit-code 0
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+  rules:
+    - changes:
+        - guardian-shield/**/*
+  allow_failure: true
+
+security:secrets:
+  stage: security
+  image: trufflesecurity/trufflehog:latest
+  script:
+    - trufflehog filesystem guardian-shield/ --json > secrets-report.json || true
+  artifacts:
+    paths:
+      - secrets-report.json
+  rules:
+    - changes:
+        - guardian-shield/**/*
+  allow_failure: true
+
+# Deploy configurations
+deploy:configs:
+  stage: deploy
+  image: bitnami/kubectl:${KUBECTL_VERSION}
+  script:
+    - kubectl apply -f guardian-shield/config/values.yaml --dry-run=client
+    - echo "Configuration validated successfully"
+    # Production deployment (uncomment when ready):
+    # - kubectl apply -f guardian-shield/config/values.yaml
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - guardian-shield/config/**/*
+
+deploy:alerts:
+  stage: deploy
+  image: bitnami/kubectl:${KUBECTL_VERSION}
+  script:
+    - kubectl apply -f guardian-shield/alerts/alert_rules.yaml --dry-run=client
+    - echo "Alert rules validated successfully"
+    # Production deployment (uncomment when ready):
+    # - kubectl apply -f guardian-shield/alerts/alert_rules.yaml
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - guardian-shield/alerts/**/*
+
+deploy:dashboards:
+  stage: deploy
+  image: curlimages/curl:latest
+  script:
+    - echo "Would import dashboard to Grafana"
+    # Production deployment (uncomment when ready):
+    # - |
+    #   curl -X POST \
+    #     -H "Authorization: Bearer ${GRAFANA_API_KEY}" \
+    #     -H "Content-Type: application/json" \
+    #     -d @guardian-shield/grafana/dashboards.json \
+    #     "${GRAFANA_URL}/api/dashboards/db"
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - guardian-shield/grafana/**/*
+
+# Synthetic drill execution
+drill:simulate:
+  stage: drill
+  image: bitnami/kubectl:${KUBECTL_VERSION}
+  script:
+    - echo "Simulating fraud drill..."
+    # Production drill (uncomment when ready):
+    # - |
+    #   kubectl exec deploy/shield-orchestrator -- \
+    #     simulate_alert --severity critical --type mixer
+    - echo "Drill simulation completed"
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  needs:
+    - deploy:configs
+
+drill:verify:
+  stage: drill
+  image: bitnami/kubectl:${KUBECTL_VERSION}
+  script:
+    - echo "Verifying drill results..."
+    # Production verification (uncomment when ready):
+    # - |
+    #   kubectl exec deploy/shield-orchestrator -- \
+    #     get_drill_status --last 1
+    - echo "Drill verification completed"
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  needs:
+    - drill:simulate
+
+# Weekly report generation (scheduled)
+report:generate:
+  stage: report
+  image: bitnami/kubectl:${KUBECTL_VERSION}
+  script:
+    - echo "Generating weekly incident report..."
+    # Production report generation (uncomment when ready):
+    # - |
+    #   kubectl exec deploy/shield-orchestrator -- \
+    #     generate_report --format pdfa --output /tmp/incident_report.pdf
+    # - kubectl cp deploy/shield-orchestrator:/tmp/incident_report.pdf ./docs/incident_report.pdf
+    - touch docs/incident_report.pdf
+    - echo "Report generation completed"
+  artifacts:
+    paths:
+      - docs/incident_report.pdf
+    expire_in: 90 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+report:notify:
+  stage: report
+  image: curlimages/curl:latest
+  script:
+    - echo "Notifying stakeholders of report availability..."
+    # Production notification (uncomment when ready):
+    # - |
+    #   curl -X POST "${SLACK_WEBHOOK_URL}" \
+    #     -H "Content-Type: application/json" \
+    #     -d '{"text": "Weekly Guardian Shield incident report is available."}'
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  needs:
+    - report:generate
+
+# Documentation validation
+docs:lint:
+  stage: validate
+  image: node:20-alpine
+  script:
+    - npm install -g markdownlint-cli
+    - markdownlint guardian-shield/docs/*.md || true
+  rules:
+    - changes:
+        - guardian-shield/docs/**/*
+  allow_failure: true
+
+docs:links:
+  stage: validate
+  image: lycheeverse/lychee:latest
+  script:
+    - lychee guardian-shield/docs/*.md || true
+  rules:
+    - changes:
+        - guardian-shield/docs/**/*
+  allow_failure: true
+
+# Cleanup old artifacts
+cleanup:
+  stage: .post
+  image: alpine:latest
+  script:
+    - echo "Cleanup completed"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: always

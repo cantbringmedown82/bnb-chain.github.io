@@ -1,0 +1,353 @@
+# Guardian Shield — Evidence Ledger Schema
+# Crypto Hound LLC — Append-Only Evidence Ledger Design
+
+ledger_schema:
+  version: "1.0"
+  namespace: "crypto_hound.ledger"
+  description: "Append-only, hash-chained, signed evidence ledger for regulator-grade compliance"
+
+  # Block structure for hash-chained ledger
+  blocks:
+    schema:
+      block_id:
+        type: "uuid"
+        description: "Unique identifier for each ledger block"
+        generated: "auto"
+        
+      parent_hash:
+        type: "sha256"
+        description: "Hash of previous block for chain integrity"
+        nullable: false
+        format: "hex string (64 characters)"
+        
+      timestamp:
+        type: "datetime"
+        format: "RFC3339"
+        description: "Block creation time (UTC)"
+        generated: "auto"
+        
+      merkle_root:
+        type: "sha256"
+        description: "Merkle root of all entries in the block"
+        nullable: false
+        
+      entry_count:
+        type: "integer"
+        description: "Number of entries in this block"
+        minimum: 1
+        
+      block_signature:
+        type: "string"
+        description: "GPG signature of block hash"
+        format: "Base64-encoded signature"
+        signer: "Crypto Hound LLC"
+        
+      anchor_status:
+        type: "enum"
+        values: ["pending", "anchored", "confirmed"]
+        description: "Blockchain anchor status"
+        
+      anchor_references:
+        type: "array"
+        items:
+          network:
+            type: "string"
+            enum: ["Bitcoin", "Ethereum", "Filecoin"]
+          transaction_id:
+            type: "string"
+          block_number:
+            type: "integer"
+          confirmations:
+            type: "integer"
+
+  # Individual evidence entry structure
+  entries:
+    schema:
+      entry_id:
+        type: "uuid"
+        description: "Unique identifier for each evidence entry"
+        generated: "auto"
+        primary_key: true
+        
+      block_id:
+        type: "uuid"
+        description: "Reference to parent block"
+        foreign_key: "blocks.block_id"
+        
+      case_id:
+        type: "string"
+        description: "Associated fraud case identifier"
+        format: "fraud_tx_[hash]"
+        indexed: true
+        example: "fraud_tx_20e65feb"
+        
+      bundle_id:
+        type: "uuid"
+        description: "Link to compliance evidence bundle"
+        indexed: true
+        
+      evidence_type:
+        type: "enum"
+        values: ["json", "yaml", "png", "pdfa", "csv"]
+        description: "Type of evidence file"
+        
+      evidence_hash:
+        type: "sha256"
+        description: "Hash of evidence file content"
+        format: "hex string (64 characters)"
+        nullable: false
+        
+      evidence_size:
+        type: "integer"
+        description: "Size of evidence file in bytes"
+        minimum: 0
+        
+      evidence_location:
+        type: "string"
+        description: "Storage location URI"
+        format: "s3://bucket/path or ipfs://hash"
+        
+      metadata:
+        type: "object"
+        description: "Additional evidence metadata"
+        properties:
+          source:
+            type: "string"
+            description: "Evidence source system"
+          collector:
+            type: "string"
+            description: "Agent that collected evidence"
+          collection_timestamp:
+            type: "datetime"
+          tags:
+            type: "array"
+            items:
+              type: "string"
+              
+      severity:
+        type: "enum"
+        values: ["critical", "high", "medium", "watchlist"]
+        description: "Severity level of associated alert"
+        indexed: true
+        
+      signature:
+        type: "string"
+        description: "GPG signature for authenticity"
+        format: "Base64-encoded signature"
+        signer: "Crypto Hound LLC GPG"
+        nullable: false
+        
+      status:
+        type: "enum"
+        values: ["pending", "sealed", "archived", "exported"]
+        description: "Lifecycle state of evidence"
+        default: "pending"
+        
+      created_at:
+        type: "datetime"
+        format: "RFC3339"
+        description: "Entry creation timestamp"
+        generated: "auto"
+        
+      created_by:
+        type: "string"
+        description: "User or system that created entry"
+
+  # Evidence bundle structure
+  bundles:
+    schema:
+      bundle_id:
+        type: "uuid"
+        description: "Unique bundle identifier"
+        primary_key: true
+        
+      case_id:
+        type: "string"
+        description: "Associated fraud case"
+        indexed: true
+        
+      bundle_type:
+        type: "enum"
+        values: ["incident", "weekly", "drill", "compliance", "export"]
+        description: "Type of evidence bundle"
+        
+      components:
+        type: "array"
+        description: "Bundle components"
+        items:
+          component_id:
+            type: "string"
+            enum: ["event_log", "alert_trace", "dashboard_snapshot", "pdf_report"]
+          entry_id:
+            type: "uuid"
+            description: "Reference to ledger entry"
+          sequence:
+            type: "integer"
+            description: "Order in bundle"
+            
+      bundle_hash:
+        type: "sha256"
+        description: "Hash of complete bundle"
+        
+      bundle_signature:
+        type: "string"
+        description: "GPG signature of bundle hash"
+        
+      watermark:
+        type: "string"
+        default: "Anchored Evidence — Crypto Hound LLC"
+        
+      anchor_status:
+        type: "enum"
+        values: ["pending", "anchored", "confirmed"]
+        
+      created_at:
+        type: "datetime"
+        format: "RFC3339"
+
+  # Policies governing ledger behavior
+  policies:
+    append_only: true
+    mutability: "none"
+    retention: "permanent"
+    audit: "immutable log, regulator-verifiable"
+    
+    deletion:
+      allowed: false
+      exceptions:
+        - condition: "GDPR data subject request"
+          action: "tombstone entry, retain hash"
+          approval_required: true
+          
+    modification:
+      allowed: false
+      corrections:
+        method: "Create correction entry referencing original"
+        
+    archival:
+      trigger: "entry older than 7 years"
+      destination: "cold storage"
+      verification: "hash verification on retrieval"
+
+  # Governance specifications
+  governance:
+    key_rotation:
+      frequency: "quarterly"
+      overlap_period: "14 days"
+      
+    signature_scheme:
+      algorithm: "RSA-4096"
+      format: "GPG"
+      key_id: "Crypto Hound LLC Signing Key"
+      
+    hash_algorithm: "SHA-256"
+    
+    anchor_networks:
+      primary: "Bitcoin"
+      secondary:
+        - "Ethereum"
+        - "Filecoin"
+      anchor_frequency: "daily batch"
+      
+    verification:
+      chain_integrity: "Every block verified against parent hash"
+      signature_validation: "All signatures verified on read"
+      anchor_confirmation: "Require 6+ confirmations for Bitcoin"
+
+  # Database implementation details
+  database:
+    engine: "PostgreSQL 16"
+    
+    tables:
+      - name: "ledger_blocks"
+        columns:
+          - "block_id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+          - "parent_hash VARCHAR(64) NOT NULL"
+          - "timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+          - "merkle_root VARCHAR(64) NOT NULL"
+          - "entry_count INTEGER NOT NULL"
+          - "block_signature TEXT NOT NULL"
+          - "anchor_status VARCHAR(20) NOT NULL DEFAULT 'pending'"
+          - "anchor_references JSONB"
+        indexes:
+          - "CREATE INDEX idx_blocks_timestamp ON ledger_blocks(timestamp)"
+          - "CREATE INDEX idx_blocks_anchor ON ledger_blocks(anchor_status)"
+        constraints:
+          - "ALTER TABLE ledger_blocks ADD CONSTRAINT no_update USING (true) FOR UPDATE USING (false)"
+          
+      - name: "ledger_entries"
+        columns:
+          - "entry_id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+          - "block_id UUID NOT NULL REFERENCES ledger_blocks(block_id)"
+          - "case_id VARCHAR(100) NOT NULL"
+          - "bundle_id UUID"
+          - "evidence_type VARCHAR(20) NOT NULL"
+          - "evidence_hash VARCHAR(64) NOT NULL"
+          - "evidence_size BIGINT NOT NULL"
+          - "evidence_location TEXT NOT NULL"
+          - "metadata JSONB"
+          - "severity VARCHAR(20)"
+          - "signature TEXT NOT NULL"
+          - "status VARCHAR(20) NOT NULL DEFAULT 'pending'"
+          - "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+          - "created_by VARCHAR(100) NOT NULL"
+        indexes:
+          - "CREATE INDEX idx_entries_case ON ledger_entries(case_id)"
+          - "CREATE INDEX idx_entries_bundle ON ledger_entries(bundle_id)"
+          - "CREATE INDEX idx_entries_severity ON ledger_entries(severity)"
+          - "CREATE INDEX idx_entries_status ON ledger_entries(status)"
+          - "CREATE INDEX idx_entries_created ON ledger_entries(created_at)"
+          
+      - name: "ledger_bundles"
+        columns:
+          - "bundle_id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+          - "case_id VARCHAR(100) NOT NULL"
+          - "bundle_type VARCHAR(20) NOT NULL"
+          - "components JSONB NOT NULL"
+          - "bundle_hash VARCHAR(64) NOT NULL"
+          - "bundle_signature TEXT NOT NULL"
+          - "watermark TEXT DEFAULT 'Anchored Evidence — Crypto Hound LLC'"
+          - "anchor_status VARCHAR(20) NOT NULL DEFAULT 'pending'"
+          - "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()"
+        indexes:
+          - "CREATE INDEX idx_bundles_case ON ledger_bundles(case_id)"
+          - "CREATE INDEX idx_bundles_type ON ledger_bundles(bundle_type)"
+          
+    triggers:
+      - name: "prevent_block_modification"
+        table: "ledger_blocks"
+        events: ["UPDATE", "DELETE"]
+        action: "RAISE EXCEPTION 'Ledger blocks are immutable'"
+        
+      - name: "prevent_entry_modification"
+        table: "ledger_entries"
+        events: ["UPDATE", "DELETE"]
+        action: "RAISE EXCEPTION 'Ledger entries are immutable'"
+        
+      - name: "audit_log"
+        table: "ledger_entries"
+        events: ["INSERT"]
+        action: "INSERT INTO audit_log SELECT * FROM NEW"
+
+  # Verification procedures
+  verification:
+    hash_chain:
+      description: "Verify each block hash matches previous"
+      query: |
+        SELECT b1.block_id, b1.parent_hash, 
+               encode(sha256(b2.data::bytea), 'hex') as computed_hash
+        FROM ledger_blocks b1
+        JOIN ledger_blocks b2 ON b1.parent_hash = encode(sha256(b2.data::bytea), 'hex')
+        WHERE b1.parent_hash != encode(sha256(b2.data::bytea), 'hex')
+        
+    signature_validation:
+      description: "Verify all signatures are valid"
+      command: "gpg --verify"
+      
+    anchor_verification:
+      bitcoin:
+        description: "Verify OP_RETURN contains document hash"
+        command: "bitcoin-cli getrawtransaction {txid} true"
+      ethereum:
+        description: "Verify anchor contract state"
+        command: "cast call {contract} 'getAnchor(bytes32)' {hash}"

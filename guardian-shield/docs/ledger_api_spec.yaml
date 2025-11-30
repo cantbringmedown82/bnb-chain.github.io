@@ -1,0 +1,778 @@
+# Guardian Shield — Ledger API Specification
+# Crypto Hound LLC — API Endpoints for Append, Verify, Query, Export
+
+openapi: "3.0.3"
+info:
+  title: "Guardian Shield Evidence Ledger API"
+  version: "1.0.0"
+  description: |
+    REST API for Guardian Shield's append-only evidence ledger.
+    Provides endpoints for appending evidence, verifying integrity,
+    querying records, and exporting compliance bundles.
+  contact:
+    name: "Crypto Hound LLC"
+    email: "api@cryptohound.com"
+  license:
+    name: "Proprietary"
+
+servers:
+  - url: "https://api.guardianshield.cryptohound.com/v1"
+    description: "Production"
+  - url: "https://api-staging.guardianshield.cryptohound.com/v1"
+    description: "Staging"
+
+security:
+  - GPGSignature: []
+  - BearerAuth: []
+
+paths:
+  /ledger/append:
+    post:
+      summary: "Append evidence to ledger"
+      description: |
+        Appends a new evidence entry to the immutable ledger.
+        Requires GPG signature and valid authentication token.
+      operationId: "appendEvidence"
+      tags:
+        - "Ledger"
+      security:
+        - GPGSignature: []
+          BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppendRequest"
+            example:
+              case_id: "fraud_tx_20e65feb"
+              bundle_id: "550e8400-e29b-41d4-a716-446655440000"
+              evidence_type: "json"
+              evidence_content: "base64_encoded_content"
+              hash: "a948904f2f0f479b8f8564cbf12dac6b"
+              signature: "-----BEGIN PGP SIGNATURE-----..."
+              anchor: "blockchain_anchor:enabled"
+              metadata:
+                source: "fraud_monitor_agent"
+                tags: ["mixer", "critical"]
+      responses:
+        "201":
+          description: "Evidence appended successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppendResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: "Duplicate evidence hash"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /ledger/verify/{bundle_id}:
+    get:
+      summary: "Verify evidence bundle"
+      description: |
+        Verifies hash, signature, and blockchain anchor for a given evidence bundle.
+        Public endpoint - no authentication required.
+      operationId: "verifyBundle"
+      tags:
+        - "Verification"
+      security: []
+      parameters:
+        - name: "bundle_id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "Bundle ID to verify"
+      responses:
+        "200":
+          description: "Verification result"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationResponse"
+              example:
+                bundle_id: "550e8400-e29b-41d4-a716-446655440000"
+                hash_valid: true
+                signature_valid: true
+                anchor_status: "confirmed"
+                anchor_details:
+                  network: "Bitcoin"
+                  transaction_id: "abc123..."
+                  confirmations: 142
+                timestamp: "2025-01-15T10:30:00Z"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /ledger/verify/hash/{hash}:
+    get:
+      summary: "Verify evidence by hash"
+      description: "Verify evidence exists and is valid by its SHA-256 hash"
+      operationId: "verifyByHash"
+      tags:
+        - "Verification"
+      security: []
+      parameters:
+        - name: "hash"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            pattern: "^[a-fA-F0-9]{64}$"
+          description: "SHA-256 hash of evidence"
+      responses:
+        "200":
+          description: "Verification result"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HashVerificationResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /ledger/query:
+    get:
+      summary: "Query ledger entries"
+      description: "Query evidence entries with filters"
+      operationId: "queryLedger"
+      tags:
+        - "Query"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "case_id"
+          in: "query"
+          schema:
+            type: "string"
+          description: "Filter by case ID"
+        - name: "severity"
+          in: "query"
+          schema:
+            type: "array"
+            items:
+              type: "string"
+              enum: ["critical", "high", "medium", "watchlist"]
+          description: "Filter by severity levels"
+        - name: "start_date"
+          in: "query"
+          schema:
+            type: "string"
+            format: "date"
+          description: "Filter by start date (inclusive)"
+        - name: "end_date"
+          in: "query"
+          schema:
+            type: "string"
+            format: "date"
+          description: "Filter by end date (inclusive)"
+        - name: "evidence_type"
+          in: "query"
+          schema:
+            type: "string"
+            enum: ["json", "yaml", "png", "pdfa", "csv"]
+          description: "Filter by evidence type"
+        - name: "status"
+          in: "query"
+          schema:
+            type: "string"
+            enum: ["pending", "sealed", "archived", "exported"]
+          description: "Filter by status"
+        - name: "page"
+          in: "query"
+          schema:
+            type: "integer"
+            minimum: 1
+            default: 1
+          description: "Page number"
+        - name: "limit"
+          in: "query"
+          schema:
+            type: "integer"
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: "Results per page"
+        - name: "sort"
+          in: "query"
+          schema:
+            type: "string"
+            enum: ["created_at:asc", "created_at:desc", "severity:asc", "severity:desc"]
+            default: "created_at:desc"
+          description: "Sort order"
+      responses:
+        "200":
+          description: "Query results"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /ledger/entry/{entry_id}:
+    get:
+      summary: "Get ledger entry"
+      description: "Retrieve a specific ledger entry by ID"
+      operationId: "getEntry"
+      tags:
+        - "Query"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "entry_id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "Entry ID"
+      responses:
+        "200":
+          description: "Entry details"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /ledger/export:
+    post:
+      summary: "Export compliance bundle"
+      description: |
+        Export evidence bundle in requested format.
+        Generates PDF/A compliant reports with full audit trail.
+      operationId: "exportBundle"
+      tags:
+        - "Export"
+      security:
+        - GPGSignature: []
+          BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+            example:
+              format: "pdfa"
+              case_id: "fraud_tx_20e65feb"
+              include:
+                - "event_log"
+                - "alert_trace"
+                - "dashboard_snapshot"
+                - "pdf_report"
+              date_range:
+                start: "2025-01-01"
+                end: "2025-01-31"
+      responses:
+        "200":
+          description: "Export successful"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /ledger/export/{export_id}/download:
+    get:
+      summary: "Download exported bundle"
+      description: "Download a previously generated export"
+      operationId: "downloadExport"
+      tags:
+        - "Export"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "export_id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+          description: "Export ID"
+      responses:
+        "200":
+          description: "Export file"
+          content:
+            application/pdf:
+              schema:
+                type: "string"
+                format: "binary"
+            application/zip:
+              schema:
+                type: "string"
+                format: "binary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /ledger/blocks:
+    get:
+      summary: "List ledger blocks"
+      description: "List ledger blocks for chain verification"
+      operationId: "listBlocks"
+      tags:
+        - "Blocks"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "page"
+          in: "query"
+          schema:
+            type: "integer"
+            default: 1
+        - name: "limit"
+          in: "query"
+          schema:
+            type: "integer"
+            default: 20
+      responses:
+        "200":
+          description: "Block list"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /ledger/blocks/{block_id}:
+    get:
+      summary: "Get block details"
+      description: "Get detailed information about a specific block"
+      operationId: "getBlock"
+      tags:
+        - "Blocks"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: "block_id"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            format: "uuid"
+      responses:
+        "200":
+          description: "Block details"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Block"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /ledger/integrity:
+    get:
+      summary: "Check ledger integrity"
+      description: "Verify hash chain integrity of entire ledger"
+      operationId: "checkIntegrity"
+      tags:
+        - "Verification"
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: "Integrity check result"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrityResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /health:
+    get:
+      summary: "Health check"
+      description: "API health check endpoint"
+      operationId: "healthCheck"
+      tags:
+        - "System"
+      security: []
+      responses:
+        "200":
+          description: "Healthy"
+          content:
+            application/json:
+              schema:
+                type: "object"
+                properties:
+                  status:
+                    type: "string"
+                    example: "healthy"
+                  version:
+                    type: "string"
+                    example: "1.0.0"
+                  timestamp:
+                    type: "string"
+                    format: "date-time"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+      description: "JWT token for authentication"
+      
+    GPGSignature:
+      type: "apiKey"
+      in: "header"
+      name: "X-GPG-Signature"
+      description: "GPG signature of request body"
+
+  schemas:
+    AppendRequest:
+      type: "object"
+      required:
+        - "case_id"
+        - "evidence_type"
+        - "evidence_content"
+        - "hash"
+        - "signature"
+      properties:
+        case_id:
+          type: "string"
+          description: "Associated fraud case ID"
+        bundle_id:
+          type: "string"
+          format: "uuid"
+          description: "Optional bundle ID"
+        evidence_type:
+          type: "string"
+          enum: ["json", "yaml", "png", "pdfa", "csv"]
+        evidence_content:
+          type: "string"
+          format: "byte"
+          description: "Base64-encoded evidence content"
+        hash:
+          type: "string"
+          pattern: "^[a-fA-F0-9]{64}$"
+          description: "SHA-256 hash of evidence"
+        signature:
+          type: "string"
+          description: "GPG signature of evidence"
+        anchor:
+          type: "string"
+          enum: ["blockchain_anchor:enabled", "blockchain_anchor:disabled"]
+          default: "blockchain_anchor:enabled"
+        metadata:
+          type: "object"
+          additionalProperties: true
+
+    AppendResponse:
+      type: "object"
+      properties:
+        status:
+          type: "string"
+          example: "success"
+        entry_id:
+          type: "string"
+          format: "uuid"
+        block_id:
+          type: "string"
+          format: "uuid"
+        parent_hash:
+          type: "string"
+        timestamp:
+          type: "string"
+          format: "date-time"
+
+    VerificationResponse:
+      type: "object"
+      properties:
+        bundle_id:
+          type: "string"
+          format: "uuid"
+        hash_valid:
+          type: "boolean"
+        signature_valid:
+          type: "boolean"
+        anchor_status:
+          type: "string"
+          enum: ["pending", "anchored", "confirmed", "not_anchored"]
+        anchor_details:
+          type: "object"
+          properties:
+            network:
+              type: "string"
+            transaction_id:
+              type: "string"
+            confirmations:
+              type: "integer"
+        timestamp:
+          type: "string"
+          format: "date-time"
+
+    HashVerificationResponse:
+      type: "object"
+      properties:
+        hash:
+          type: "string"
+        exists:
+          type: "boolean"
+        entry_id:
+          type: "string"
+          format: "uuid"
+        signature_valid:
+          type: "boolean"
+        anchor_status:
+          type: "string"
+        timestamp:
+          type: "string"
+          format: "date-time"
+
+    QueryResponse:
+      type: "object"
+      properties:
+        entries:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/LedgerEntry"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    LedgerEntry:
+      type: "object"
+      properties:
+        entry_id:
+          type: "string"
+          format: "uuid"
+        block_id:
+          type: "string"
+          format: "uuid"
+        case_id:
+          type: "string"
+        bundle_id:
+          type: "string"
+          format: "uuid"
+        evidence_type:
+          type: "string"
+        evidence_hash:
+          type: "string"
+        severity:
+          type: "string"
+        status:
+          type: "string"
+        signature:
+          type: "string"
+        anchor_status:
+          type: "string"
+        created_at:
+          type: "string"
+          format: "date-time"
+        created_by:
+          type: "string"
+        metadata:
+          type: "object"
+
+    ExportRequest:
+      type: "object"
+      required:
+        - "format"
+      properties:
+        format:
+          type: "string"
+          enum: ["pdfa", "json", "zip"]
+        case_id:
+          type: "string"
+        bundle_id:
+          type: "string"
+          format: "uuid"
+        include:
+          type: "array"
+          items:
+            type: "string"
+            enum: ["event_log", "alert_trace", "dashboard_snapshot", "pdf_report"]
+        date_range:
+          type: "object"
+          properties:
+            start:
+              type: "string"
+              format: "date"
+            end:
+              type: "string"
+              format: "date"
+
+    ExportResponse:
+      type: "object"
+      properties:
+        export_id:
+          type: "string"
+          format: "uuid"
+        status:
+          type: "string"
+          enum: ["pending", "processing", "completed", "failed"]
+        file:
+          type: "string"
+          description: "Filename"
+        hash:
+          type: "string"
+          description: "SHA-256 hash of export"
+        signature:
+          type: "string"
+          description: "GPG signature"
+        anchor:
+          type: "string"
+          enum: ["blockchain_anchor:enabled", "blockchain_anchor:disabled"]
+        download_url:
+          type: "string"
+          format: "uri"
+        expires_at:
+          type: "string"
+          format: "date-time"
+
+    Block:
+      type: "object"
+      properties:
+        block_id:
+          type: "string"
+          format: "uuid"
+        parent_hash:
+          type: "string"
+        timestamp:
+          type: "string"
+          format: "date-time"
+        merkle_root:
+          type: "string"
+        entry_count:
+          type: "integer"
+        block_signature:
+          type: "string"
+        anchor_status:
+          type: "string"
+        anchor_references:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              network:
+                type: "string"
+              transaction_id:
+                type: "string"
+              confirmations:
+                type: "integer"
+
+    BlockListResponse:
+      type: "object"
+      properties:
+        blocks:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Block"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    IntegrityResponse:
+      type: "object"
+      properties:
+        status:
+          type: "string"
+          enum: ["valid", "invalid"]
+        total_blocks:
+          type: "integer"
+        verified_blocks:
+          type: "integer"
+        total_entries:
+          type: "integer"
+        last_verified:
+          type: "string"
+          format: "date-time"
+        issues:
+          type: "array"
+          items:
+            type: "object"
+            properties:
+              block_id:
+                type: "string"
+              issue:
+                type: "string"
+
+    Pagination:
+      type: "object"
+      properties:
+        page:
+          type: "integer"
+        limit:
+          type: "integer"
+        total:
+          type: "integer"
+        total_pages:
+          type: "integer"
+        has_next:
+          type: "boolean"
+        has_prev:
+          type: "boolean"
+
+    Error:
+      type: "object"
+      properties:
+        code:
+          type: "string"
+        message:
+          type: "string"
+        details:
+          type: "object"
+
+  responses:
+    BadRequest:
+      description: "Bad request"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "BAD_REQUEST"
+            message: "Invalid request parameters"
+            
+    Unauthorized:
+      description: "Unauthorized"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "UNAUTHORIZED"
+            message: "Invalid or missing authentication"
+            
+    Forbidden:
+      description: "Forbidden"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "FORBIDDEN"
+            message: "Insufficient permissions"
+            
+    NotFound:
+      description: "Not found"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: "NOT_FOUND"
+            message: "Resource not found"
