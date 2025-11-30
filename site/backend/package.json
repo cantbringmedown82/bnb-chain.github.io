@@ -1,0 +1,14 @@
+{
+  "name": "crypto-hound-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.2",
+    "stripe": "^14.0.0"
+  }
+}

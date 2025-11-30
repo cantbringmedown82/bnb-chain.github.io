@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: reports-pvc
+  namespace: crypto-hound
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources: { requests: { storage: 5Gi } }
