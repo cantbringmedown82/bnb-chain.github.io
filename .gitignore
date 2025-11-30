@@ -1,4 +1,7 @@
-site/
+# MkDocs build output (but track backend)
+site/*
+!site/backend/
+!site/backend/**
 
 .idea/
 
@@ -9,3 +12,10 @@ site/
 build
 
 .docusaurus
+
+node_modules/
+*.log
+.env
+.env.local
+dist/
+coverage/
