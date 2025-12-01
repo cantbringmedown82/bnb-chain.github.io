@@ -1,0 +1,27 @@
+version: "3.9"
+services:
+  api:
+    build: .
+    command: npx ts-node src/server.ts
+    ports:
+      - "8443:8443"
+    environment:
+      - DB_URL=postgres://postgres:postgres@db:5432/ach
+      - PORT=8443
+      - WEBHOOK_SECRET=change-me
+    depends_on:
+      - db
+
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ach
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

@@ -1,0 +1,11 @@
+version: 1
+endpoints:
+  - name: regulator-sink
+    url: https://example.com/webhooks/ach
+    secretRef: WEBHOOK_SECRET
+    events:
+      - ach.batch_submitted
+      - ach.batch_settled
+      - ach.entry_returned
+      - ach.reclamation_received
+      - forms.prepared
