@@ -83,6 +83,14 @@ The service uses PostgreSQL. Run the migration script to set up the schema:
 psql $DB_URL -f migrations/001_init.sql
 ```
 
+## Security Considerations
+
+For production deployments, consider implementing:
+- Rate limiting (e.g., via express-rate-limit middleware or API gateway)
+- Input validation and sanitization
+- Request authentication and authorization
+- TLS/HTTPS termination
+
 ## License
 
 MIT

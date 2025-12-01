@@ -27,12 +27,13 @@ r.post("/api/ach/batches/:id/submit", async (req: Request, res: Response) => {
 
   const file = buildNachaFile(batchRes.rows[0], entriesRes.rows);
   const fileHash = Buffer.from(file).toString("base64");
+  const ackRef = `ACK-${Date.now()}`;
 
   await pool.query("UPDATE ach_batch SET status='submitted', file_hash=$2, ack_ref=$3 WHERE id=$1", [
-    id, fileHash, `ACK-${Date.now()}`
+    id, fileHash, ackRef
   ]);
 
-  return res.json({ ok: true, batchId: id, ackRef: `ACK-${Date.now()}` });
+  return res.json({ ok: true, batchId: id, ackRef });
 });
 
 // List batches
