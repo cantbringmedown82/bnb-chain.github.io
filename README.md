@@ -1,4 +1,5 @@
-CryptoHoundToken full app scaffold
+# Example using etherscan API
+curl https://api.etherscan.io/api?module=transaction&action=gettxinfo&txhash=0xabc123...CryptoHoundToken full app scaffold
 
 You want the whole app code. I’ll give you a production-grade, end-to-end scaffold you can drop into a monorepo and ship: Solidity token and governance, backend APIs, PostgreSQL, FastAPI, React/TypeScript frontend, CI/CD, hardening, tests, and deployment. It’s modular, audit-friendly, and ready for your quantum-secure extensions.
 
