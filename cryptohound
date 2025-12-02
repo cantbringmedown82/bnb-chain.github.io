@@ -2929,8 +2929,12 @@ Tailor it for Crypto Hound
 
 ---
 
-If you want me to drop this into your existing repo layout or wire it to your exact BSC addresses and helm values, share your preferred structure or current env details and I’ll adapt it precisely.cd deploy
+If you want me to drop this into your existing repo layout or wire it to your exact BSC addresses and helm values, share your preferred structure or current env details and I will adapt it precisely.
+
+```bash
+cd deploy
 docker compose up --build
+```
 
 ---
 
@@ -2975,7 +2979,7 @@ gpg --verify compliance-report-2025-11-23.pdf.asc compliance-report-2025-11-23.p
 - Query Ethereum explorer:
   ```bash
   # Example using etherscan API
-  curl https://api.etherscan.io/api?module=transaction&action=gettxinfo&txhash=0xabc123...
+  curl "https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash=0xabc123...&apikey=YourApiKey"
   ```
 - Confirm the anchored data contains:
   - SHA-256 digest
