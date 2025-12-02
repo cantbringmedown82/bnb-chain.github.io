@@ -314,7 +314,168 @@
 
 ---
 
-## 7. Branding Guidelines
+## 7. User Profile Page
+
+### 7.1 Profile Overview Layout
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ User Profile                                          [Edit Profile]    │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────┬───────────────────────────────────┐ │
+│ │  PROFILE INFORMATION            │  SECURITY SETTINGS                │ │
+│ │ ┌─────────────────────────────┐ │ ┌───────────────────────────────┐ │ │
+│ │ │        ┌─────────┐           │ │ │ Two-Factor Authentication     │ │ │
+│ │ │        │         │           │ │ │ ✓ Enabled (TOTP)              │ │ │
+│ │ │        │ [Photo] │           │ │ │ Last used: 3 hours ago        │ │ │
+│ │ │        │         │           │ │ │ [Manage 2FA]                  │ │ │
+│ │ │        └─────────┘           │ │ ├───────────────────────────────┤ │ │
+│ │ │      [Change Photo]          │ │ │ Session Management            │ │ │
+│ │ ├─────────────────────────────┤ │ │ Active Sessions: 1            │ │ │
+│ │ │ Name: John Doe               │ │ │ Current: Chrome/Windows       │ │ │
+│ │ │ Email: john.doe@regulator.gov│ │ │ [View All Sessions]           │ │ │
+│ │ │ Role: Regulator              │ │ ├───────────────────────────────┤ │ │
+│ │ │ Organization: SEC            │ │ │ API Keys                      │ │ │
+│ │ │ Member Since: Jan 15, 2025   │ │ │ Active Keys: 2                │ │ │
+│ │ │ User ID: usr_abc123 [Copy]   │ │ │ [Manage API Keys]             │ │ │
+│ │ └─────────────────────────────┘ │ └───────────────────────────────┘ │ │
+│ └─────────────────────────────────┴───────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────┬───────────────────────────────────┐ │
+│ │  NOTIFICATION PREFERENCES       │  ACTIVITY LOG                     │ │
+│ │ ┌───────────────────────────────┐│ ┌───────────────────────────────┐ │ │
+│ │ │ Email Notifications           ││ │ Recent Activity               │ │ │
+│ │ │ ☑ Critical Alerts             ││ │ 📝 Profile updated (2h ago)   │ │ │
+│ │ │ ☑ High Severity Alerts        ││ │ 🔐 Logged in (3h ago)         │ │ │
+│ │ │ ☐ Medium Severity Alerts      ││ │ 📥 Downloaded report (1d ago) │ │ │
+│ │ │ ☑ Weekly Reports              ││ │ 📋 Verified evidence (2d ago) │ │ │
+│ │ │ ☑ Drill Notifications         ││ │ [View Full History]           │ │ │
+│ │ ├───────────────────────────────┤│ └───────────────────────────────┘ │ │
+│ │ │ In-App Notifications          ││                                   │ │
+│ │ │ ☑ Alert Feed Updates          ││                                   │ │
+│ │ │ ☑ System Announcements        ││                                   │ │
+│ │ │ ☐ Drill Reminders             ││                                   │ │
+│ │ └───────────────────────────────┘│                                   │ │
+│ │         [Save Preferences]       │                                   │ │
+│ └─────────────────────────────────┴───────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 Edit Profile Dialog
+
+```
+┌───────────────────────────────────────────────┐
+│ Edit Profile                            [×]   │
+├───────────────────────────────────────────────┤
+│ Display Name                                  │
+│ [John Doe_____________________________]       │
+│                                               │
+│ Contact Email (optional)                      │
+│ [john.doe@email.com____________________]      │
+│                                               │
+│ Phone Number (optional)                       │
+│ [+1 (555) 123-4567_____________________]      │
+│                                               │
+│ Timezone                                      │
+│ [UTC-5 (Eastern Time)__________________▼]     │
+│                                               │
+│ Language                                      │
+│ [English_______________________________▼]     │
+│                                               │
+│             [Cancel]        [Save Changes]    │
+└───────────────────────────────────────────────┘
+```
+
+### 7.3 Active Sessions View
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Active Sessions                                           [×]   │
+├─────────────────────────────────────────────────────────────────┤
+│ ● Current Session                                               │
+│   Chrome 120 on Windows 11                                      │
+│   IP: 192.168.1.100 • Washington, DC                            │
+│   Started: 3 hours ago                                          │
+│                                                                 │
+│ Other Sessions (1)                                              │
+│   Safari 17 on macOS 14                                         │
+│   IP: 10.0.1.50 • Washington, DC                                │
+│   Last Active: 2 days ago                          [Revoke]     │
+│                                                                 │
+│ [Revoke All Other Sessions]                         [Close]     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 7.4 API Keys Management View
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ API Keys                                      [+ Create New]    │
+├─────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ Production API Key                                          │ │
+│ │ Key: gs_live_abc123...def456              [Copy] [Show]     │ │
+│ │ Created: Jan 15, 2025 • Last Used: 2 hours ago              │ │
+│ │ Scopes: read:ledger, verify:evidence                        │ │
+│ │ [Rotate] [Revoke]                                           │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────────────────────────┐ │
+│ │ Development API Key                                         │ │
+│ │ Key: gs_test_xyz789...uvw012              [Copy] [Show]     │ │
+│ │ Created: Jan 10, 2025 • Last Used: Never                    │ │
+│ │ Scopes: read:ledger                                         │ │
+│ │ [Rotate] [Revoke]                                           │ │
+│ └─────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 7.5 Create API Key Dialog
+
+```
+┌───────────────────────────────────────────────┐
+│ Create API Key                          [×]   │
+├───────────────────────────────────────────────┤
+│ Key Name                                      │
+│ [Production Key________________________]      │
+│                                               │
+│ Environment                                   │
+│ ● Production  ○ Development                   │
+│                                               │
+│ Scopes (Select permissions)                   │
+│ ☑ read:ledger      Read evidence ledger       │
+│ ☑ verify:evidence  Verify evidence bundles    │
+│ ☐ export:reports   Export compliance reports  │
+│ ☐ read:drills      View drill results         │
+│                                               │
+│ Expiration (optional)                         │
+│ [Never______________________________▼]        │
+│                                               │
+│              [Cancel]        [Create Key]     │
+└───────────────────────────────────────────────┘
+```
+
+### 7.6 User Menu Dropdown (Header)
+
+```
+┌────────────────────────────┐
+│ John Doe          [Photo]  │
+│ Regulator                  │
+├────────────────────────────┤
+│ 👤 Profile                 │
+│ ⚙️  Settings               │
+│ 📊 Activity                │
+│ 🔑 API Keys                │
+├────────────────────────────┤
+│ 💬 Help & Support          │
+│ 📚 Documentation           │
+├────────────────────────────┤
+│ 🚪 Logout                  │
+└────────────────────────────┘
+```
+
+---
+
+## 8. Branding Guidelines
 
 ### 7.1 Logo Usage
 

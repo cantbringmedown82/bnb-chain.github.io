@@ -193,6 +193,7 @@ See [Drill Schedule](drills/drill_schedule.yaml) for configuration.
 | [Ledger Schema](docs/ledger_schema.yaml) | Database design |
 | [Ledger API](docs/ledger_api_spec.yaml) | OpenAPI specification |
 | [Portal Spec](docs/regulator_portal_spec.md) | Portal features |
+| [User Profile Spec](docs/user_profile_spec.md) | User profile feature |
 | [UI Wireframes](docs/ui_wireframe_spec.md) | Page layouts |
 | [Components](docs/frontend_component_spec.md) | React components |
 | [State Management](docs/state_management_spec.md) | Redux store |
