@@ -2931,3 +2931,86 @@ Tailor it for Crypto Hound
 
 If you want me to drop this into your existing repo layout or wire it to your exact BSC addresses and helm values, share your preferred structure or current env details and I’ll adapt it precisely.cd deploy
 docker compose up --build
+
+---
+
+# Crypto Hound LLC — Regulator Verification Guide
+
+## 🔐 Purpose
+This guide explains how regulators can independently verify the authenticity of Crypto Hound LLC's weekly compliance reports. Every artifact is sealed, signed, and anchored on-chain, ensuring reproducibility and global permanence.
+
+---
+
+## 📑 Artifacts Provided
+- **Compliance Report PDF** — branded, sealed report.
+- **Detached GPG Signature** — .asc file.
+- **SHA-256 Digest** — report.hash.
+- **Evidence Index JSON** — ledger of all reports, hashes, signatures, and anchor TXs.
+- **Anchor Log** — blockchain transaction IDs.
+
+---
+
+## ✅ Verification Steps
+
+### 1. Verify SHA-256 Digest
+```bash
+sha256sum compliance-report-2025-11-23.pdf
+cat report.hash
+```
+- The computed hash must match the digest in report.hash.
+
+---
+
+### 2. Verify GPG Signature
+```bash
+gpg --verify compliance-report-2025-11-23.pdf.asc compliance-report-2025-11-23.pdf
+```
+- Confirms the report was signed by founder@cryptohound.io.
+- GPG key fingerprint is published in Crypto Hound LLC's regulator registry.
+
+---
+
+### 3. Verify Blockchain Anchor
+- Extract TX ID from anchor-log.json or evidence index.
+- Query Ethereum explorer:
+  ```bash
+  # Example using etherscan API
+  curl https://api.etherscan.io/api?module=transaction&action=gettxinfo&txhash=0xabc123...
+  ```
+- Confirm the anchored data contains:
+  - SHA-256 digest
+  - Timestamp
+  - Signature reference
+
+---
+
+### 4. Cross-Check Evidence Index
+- Open compliance-evidence-index.json.
+- Ensure the report entry matches:
+  - report_date
+  - sha256
+  - signature
+  - anchor_tx
+  - timestamp
+
+---
+
+## 📊 Optional Dashboard Validation
+- Regulators may view Grafana dashboards embedded in the regulator portal:
+  - Sealed Receipts Table
+  - Anchored Transactions Graph
+  - SLA Compliance Panel
+
+---
+
+## 🎯 Outcome
+By following these steps, regulators can:
+- Confirm the PDF is authentic and unaltered.
+- Verify the GPG signature matches Crypto Hound LLC's sovereign identity.
+- Validate the hash and signature are permanently anchored on Ethereum.
+- Cross-check against the evidence ledger for historical continuity.
+
+---
+
+## ⚖️ Alignment
+This verification guide is governed under the Crypto Hound Institutional License and ensures independent validation of compliance artifacts.
