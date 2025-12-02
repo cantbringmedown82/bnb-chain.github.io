@@ -913,12 +913,20 @@ interface ActivityLogCardProps {
   onExport?: () => void;
 }
 
+type ActivityType = 
+  | 'profile_update' 
+  | 'login' 
+  | 'logout' 
+  | 'evidence_access' 
+  | 'report_download' 
+  | 'verification' 
+  | 'api_key_operation';
+
 interface Activity {
   id: string;
-  type: 'profile_update' | 'login' | 'logout' | 'evidence_access' | 
-        'report_download' | 'verification' | 'api_key_operation';
+  type: ActivityType;
   description: string;
-  timestamp: Date;
+  timestamp: Date; // Transformed from API string to Date object
   ip_address: string;
   user_agent?: string;
   metadata?: Record<string, any>;

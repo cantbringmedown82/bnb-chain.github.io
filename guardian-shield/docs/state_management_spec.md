@@ -408,10 +408,18 @@ interface SecuritySettings {
   api_keys_count: number;
 }
 
+type ActivityType = 
+  | 'profile_update' 
+  | 'login' 
+  | 'logout' 
+  | 'evidence_access' 
+  | 'report_download' 
+  | 'verification' 
+  | 'api_key_operation';
+
 interface Activity {
   id: string;
-  type: 'profile_update' | 'login' | 'logout' | 'evidence_access' | 
-        'report_download' | 'verification' | 'api_key_operation';
+  type: ActivityType;
   description: string;
   timestamp: string;
   ip_address: string;

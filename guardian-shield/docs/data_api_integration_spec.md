@@ -482,9 +482,18 @@ export interface SecuritySettings {
   api_keys_count: number;
 }
 
+export type ActivityType = 
+  | 'profile_update' 
+  | 'login' 
+  | 'logout' 
+  | 'evidence_access' 
+  | 'report_download' 
+  | 'verification' 
+  | 'api_key_operation';
+
 export interface Activity {
   id: string;
-  type: string;
+  type: ActivityType;
   description: string;
   timestamp: string;
   ip_address: string;
