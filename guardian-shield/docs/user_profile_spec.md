@@ -59,7 +59,7 @@ The User Profile feature allows authenticated users to view and manage their pro
 **Fields:**
 - **Profile Photo:** 
   - Upload/change profile picture
-  - Supported formats: JPG, PNG (max 2MB)
+  - Supported formats: JPG, PNG, WebP (max 2MB)
   - Auto-resize to 200x200px
   - Default: Initials avatar
 
