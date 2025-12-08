@@ -1,0 +1,278 @@
+# Guardian Shield — Fraud Event Generator
+# Crypto Hound LLC — Synthetic Scenarios
+
+fraud_event_generator:
+  version: "1.0"
+  namespace: "crypto_hound.synthetic"
+  description: "Synthetic fraud event scenarios for testing and validation"
+
+  scenarios:
+    # Critical severity scenarios
+    - id: "mixer_interaction"
+      name: "Mixer/Coinjoin Interaction"
+      severity: "critical"
+      description: "Fraud-linked cluster interacts with mixer/coinjoin service"
+      cluster_type: "mixer"
+      
+      simulation:
+        transaction_pattern:
+          inputs:
+            - source: "fraud_cluster"
+              amount_range: [1.0, 50.0]
+              currency: "BTC"
+          outputs:
+            - destination: "tornado_cash_like"
+              split_count: [5, 20]
+              delay_minutes: [0, 30]
+        
+        expected_behaviors:
+          - "Multiple equal-value outputs"
+          - "Time-delayed transactions"
+          - "Ring signature patterns"
+          
+      triggers:
+        - type: "alert"
+          metric: "shield_alerts_total"
+          labels:
+            severity: "critical"
+            cluster: "mixer"
+            scenario: "mixer_interaction"
+        - type: "report"
+          action: "generate_pdf"
+        - type: "notification"
+          destinations:
+            - "regulator"
+            - "investor"
+            - "dashboard"
+            
+      sla:
+        detection_time: 60  # seconds
+        notification_time: 300  # seconds
+        
+      evidence:
+        capture:
+          - "transaction_graph"
+          - "cluster_analysis"
+          - "timing_analysis"
+        format: ["json", "png", "pdfa"]
+
+    # High severity scenarios
+    - id: "exchange_sweep"
+      name: "Exchange Hot Wallet Contact"
+      severity: "high"
+      description: "Fraud-linked cluster touches exchange hot wallet"
+      cluster_type: "exchange"
+      
+      simulation:
+        transaction_pattern:
+          inputs:
+            - source: "fraud_cluster"
+              amount_range: [0.5, 100.0]
+              currency: "BTC"
+          outputs:
+            - destination: "exchange_hot_wallet"
+              exchanges: ["binance", "coinbase", "kraken"]
+              
+        expected_behaviors:
+          - "Direct deposit to known exchange address"
+          - "Multiple small deposits"
+          - "Wash trading patterns"
+          
+      triggers:
+        - type: "alert"
+          metric: "shield_alerts_total"
+          labels:
+            severity: "high"
+            cluster: "exchange"
+            scenario: "exchange_sweep"
+        - type: "notification"
+          destinations:
+            - "regulator"
+            - "dashboard"
+            
+      sla:
+        detection_time: 120  # seconds
+        notification_time: 900  # seconds
+        
+      evidence:
+        capture:
+          - "deposit_transaction"
+          - "exchange_attribution"
+        format: ["json", "yaml"]
+
+    # Medium severity scenarios
+    - id: "mining_pool_batch"
+      name: "Mining Pool Payout Pattern"
+      severity: "medium"
+      description: "Downstream behavior resembles mining pool payout"
+      cluster_type: "pool"
+      
+      simulation:
+        transaction_pattern:
+          inputs:
+            - source: "fraud_cluster"
+              amount_range: [0.1, 10.0]
+              currency: "BTC"
+          outputs:
+            - destination: "multiple_addresses"
+              count_range: [50, 500]
+              amount_pattern: "uniform"
+              
+        expected_behaviors:
+          - "Many small equal outputs"
+          - "Regular timing pattern"
+          - "Pool-like distribution"
+          
+      triggers:
+        - type: "alert"
+          metric: "shield_alerts_total"
+          labels:
+            severity: "medium"
+            cluster: "pool"
+            scenario: "mining_pool_batch"
+        - type: "notification"
+          destinations:
+            - "dashboard"
+            
+      sla:
+        detection_time: 300  # seconds
+        notification_time: 3600  # seconds
+        
+      evidence:
+        capture:
+          - "payout_pattern"
+          - "recipient_analysis"
+        format: ["json"]
+
+    # Watchlist severity scenarios
+    - id: "dust_output_move"
+      name: "Dust UTXO Movement"
+      severity: "watchlist"
+      description: "Unspent dust UTXO moves after extended dormancy"
+      cluster_type: "dust"
+      
+      simulation:
+        transaction_pattern:
+          inputs:
+            - source: "dormant_utxo"
+              dormancy_days_range: [180, 730]
+              amount_range: [0.00001, 0.001]
+              currency: "BTC"
+          outputs:
+            - destination: "consolidation_address"
+              
+        expected_behaviors:
+          - "Long-dormant UTXO activation"
+          - "Dust consolidation"
+          - "Change address pattern"
+          
+      triggers:
+        - type: "alert"
+          metric: "shield_unspent_movements_total"
+          labels:
+            severity: "watchlist"
+            scenario: "dust_output_move"
+        - type: "batch"
+          action: "include_weekly_report"
+          
+      sla:
+        detection_time: 600  # seconds
+        notification_time: 86400  # seconds (24 hours)
+        
+      evidence:
+        capture:
+          - "utxo_history"
+          - "consolidation_pattern"
+        format: ["json"]
+
+    # Additional scenarios
+    - id: "layering_pattern"
+      name: "Transaction Layering"
+      severity: "high"
+      description: "Complex layering pattern detected in transaction chain"
+      cluster_type: "layering"
+      
+      simulation:
+        transaction_pattern:
+          depth_range: [3, 10]
+          fan_out_range: [2, 5]
+          delay_between_layers_minutes: [1, 60]
+          
+        expected_behaviors:
+          - "Multi-hop transaction chain"
+          - "Progressively split amounts"
+          - "Varying time delays"
+          
+      triggers:
+        - type: "alert"
+          metric: "shield_alerts_total"
+          labels:
+            severity: "high"
+            cluster: "layering"
+            scenario: "layering_pattern"
+            
+      sla:
+        detection_time: 180
+        notification_time: 900
+
+    - id: "geographic_anomaly"
+      name: "Geographic Access Anomaly"
+      severity: "medium"
+      description: "Wallet access from unexpected geographic location"
+      cluster_type: "geo"
+      
+      simulation:
+        access_pattern:
+          original_location: "US"
+          anomaly_locations: ["RU", "CN", "KP", "IR"]
+          time_impossible_travel: true
+          
+      triggers:
+        - type: "alert"
+          metric: "shield_geo_anomaly_total"
+          labels:
+            severity: "medium"
+            scenario: "geographic_anomaly"
+            
+      sla:
+        detection_time: 60
+        notification_time: 3600
+
+  execution:
+    mode: "synthetic"
+    frequency: "manual | scheduled"
+    isolation: true  # Run in isolated test environment
+    cleanup: true    # Clean up test data after execution
+    
+    output:
+      logs: "loki"
+      metrics: "prometheus"
+      dashboards: "grafana"
+      reports: "pdfa"
+      
+    validation:
+      verify_detection: true
+      verify_notification: true
+      verify_evidence: true
+      verify_sla: true
+
+  reporting:
+    format: "json"
+    include:
+      - execution_id
+      - scenario_id
+      - timestamp
+      - detection_time
+      - notification_time
+      - sla_met
+      - evidence_collected
+      - errors
+    
+    destinations:
+      - type: "file"
+        path: "/var/log/guardian-shield/drills/"
+      - type: "prometheus"
+        metrics:
+          - "shield_drill_execution_total"
+          - "shield_drill_detection_seconds"
+          - "shield_drill_sla_met"

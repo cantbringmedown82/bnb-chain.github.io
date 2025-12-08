@@ -1,4 +1,5 @@
-CryptoHoundToken full app scaffold
+# Example using etherscan API
+curl https://api.etherscan.io/api?module=transaction&action=gettxinfo&txhash=0xabc123...CryptoHoundToken full app scaffold
 
 You want the whole app code. I’ll give you a production-grade, end-to-end scaffold you can drop into a monorepo and ship: Solidity token and governance, backend APIs, PostgreSQL, FastAPI, React/TypeScript frontend, CI/CD, hardening, tests, and deployment. It’s modular, audit-friendly, and ready for your quantum-secure extensions.
 
@@ -3304,3 +3305,106 @@ This is the BNB Chain Knowledge Base documentation for the BNB Chain developers.
 
 Copyright (c) 2024 BNB Chain 
 
+# Example using etherscan API
+curl https://api.etherscan.io/api?module=transaction&action=gettxinfo&txhash=0xabc123...gpg --verify compliance-report-2025-11-23.pdf.asc compliance-report-2025-11-23.pdfsha256sum compliance-report-2025-11-23.pdf
+cat report.hashstripe listen --forward-to localhost:3000/webhookdocker build -t cryptohound/frontend site/frontend
+docker run -p 3001:80 cryptohound/frontenddocker build -t cryptohound/backend site/backend
+docker run -p 3000:3000 cryptohound/backendJeremy — here’s the sample Regulator Verification Guide you can hand to auditors or regulators. It’s concise, professional, and shows them exactly how to independently validate Crypto Hound LLC’s sealed compliance artifacts.
+
+---
+
+📘 Crypto Hound LLC — Regulator Verification Guide
+
+🔐 Purpose
+This guide explains how regulators can independently verify the authenticity of Crypto Hound LLC’s weekly compliance reports. Every artifact is sealed, signed, and anchored on‑chain, ensuring reproducibility and global permanence.
+
+---
+
+📑 Artifacts Provided
+- Compliance Report PDF — branded, sealed report.
+- Detached GPG Signature — .asc file.
+- SHA‑256 Digest — report.hash.
+- Evidence Index JSON — ledger of all reports, hashes, signatures, and anchor TXs.
+- Anchor Log — blockchain transaction IDs.
+
+---
+
+✅ Verification Steps
+
+1. Verify SHA‑256 Digest
+`bash
+sha256sum compliance-report-2025-11-23.pdf
+cat report.hash
+`
+- The computed hash must match the digest in report.hash.
+
+---
+
+2. Verify GPG Signature
+`bash
+gpg --verify compliance-report-2025-11-23.pdf.asc compliance-report-2025-11-23.pdf
+`
+- Confirms the report was signed by founder@cryptohound.io.
+- GPG key fingerprint is published in Crypto Hound LLC’s regulator registry.
+
+---
+
+3. Verify Blockchain Anchor
+- Extract TX ID from anchor-log.json or evidence index.
+- Query Ethereum explorer:
+  `bash
+
+Example using etherscan API
+  curl https://api.etherscan.io/api?module=transaction&action=gettxinfo&txhash=0xabc123...
+  `
+- Confirm the anchored data contains:
+  - SHA‑256 digest
+  - Timestamp
+  - Signature reference
+
+---
+
+4. Cross‑Check Evidence Index
+- Open compliance-evidence-index.json.
+- Ensure the report entry matches:
+  - report_date
+  - sha256
+  - signature
+  - anchor_tx
+  - timestamp
+
+---
+
+📊 Optional Dashboard Validation
+- Regulators may view Grafana dashboards embedded in the regulator portal:
+  - Sealed Receipts Table
+  - Anchored Transactions Graph
+  - SLA Compliance Panel
+
+---
+
+🎯 Outcome
+By following these steps, regulators can:
+- Confirm the PDF is authentic and unaltered.
+- Verify the GPG signature matches Crypto Hound LLC’s sovereign identity.
+- Validate the hash and signature are permanently anchored on Ethereum.
+- Cross‑check against the evidence ledger for historical continuity.
+
+---
+
+Jeremy, this one‑pager gives regulators clear, reproducible instructions to validate every artifact.  
+
+Would you like me to also draft the investor‑facing version — a simplified handout that emphasizes trust and transparency without the technical command‑line details?cd site/frontend
+npm install
+REACT_APP_GRAFANA_URL=http://localhost:3000/grafana \
+npm startcd site/backend
+npm install
+STRIPE_SECRET=sk_test_xxx \
+STRIPE_WEBHOOK_SECRET=whsec_xxx \
+PRICE_ID=price_test_xxx \
+PUBLIC_URL=http://localhost:3000 \
+npm start,export async function buildCompliancePack(from?: string, to?: string) {
+  // Query artifacts for date range, assemble ZIP (stub)
+  const packId = `PACK-${Date.now()}`;
+  return packId;
+}

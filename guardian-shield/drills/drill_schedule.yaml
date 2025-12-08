@@ -1,0 +1,242 @@
+# Guardian Shield — Drill Schedule
+# Crypto Hound LLC — Cron Jobs for Synthetic Drills
+
+drill_schedule:
+  version: "1.0"
+  namespace: "crypto_hound.synthetic"
+  description: "Scheduled synthetic drills for continuous validation"
+
+  defaults:
+    timezone: "UTC"
+    retry_on_failure: true
+    max_retries: 3
+    retry_delay_minutes: 5
+    notification_on_failure: true
+    notification_channels:
+      - "slack"
+      - "pagerduty"
+
+  jobs:
+    # Weekly critical mixer drill
+    - id: "critical_mixer_weekly"
+      name: "Weekly Critical Mixer Drill"
+      scenario: "mixer_interaction"
+      cron: "0 2 * * MON"  # Every Monday at 02:00 UTC
+      severity: "critical"
+      enabled: true
+      
+      actions:
+        - "simulate_alert"
+        - "verify_detection"
+        - "verify_notification"
+        - "generate_pdf"
+        - "notify_regulator"
+        
+      validation:
+        sla_threshold_seconds: 300
+        require_all_notifications: true
+        
+      notifications:
+        on_success:
+          - channel: "slack"
+            message: "✅ Weekly critical mixer drill passed"
+        on_failure:
+          - channel: "pagerduty"
+            severity: "high"
+            message: "❌ Weekly critical mixer drill FAILED"
+          - channel: "email"
+            recipients:
+              - "security@cryptohound.com"
+              - "sre@cryptohound.com"
+
+    # Daily exchange sweep drill
+    - id: "exchange_sweep_daily"
+      name: "Daily Exchange Sweep Drill"
+      scenario: "exchange_sweep"
+      cron: "0 3 * * *"  # Daily at 03:00 UTC
+      severity: "high"
+      enabled: true
+      
+      actions:
+        - "simulate_alert"
+        - "verify_detection"
+        - "update_dashboard"
+        
+      validation:
+        sla_threshold_seconds: 900
+        
+      notifications:
+        on_failure:
+          - channel: "slack"
+            message: "⚠️ Daily exchange sweep drill failed"
+
+    # Bi-weekly mining pool drill
+    - id: "pool_batch_biweekly"
+      name: "Bi-Weekly Mining Pool Drill"
+      scenario: "mining_pool_batch"
+      cron: "0 4 1,15 * *"  # 1st and 15th of each month at 04:00 UTC
+      severity: "medium"
+      enabled: true
+      
+      actions:
+        - "simulate_alert"
+        - "verify_detection"
+        - "log_event"
+        
+      validation:
+        sla_threshold_seconds: 3600
+        
+      notifications:
+        on_failure:
+          - channel: "slack"
+            message: "⚡ Bi-weekly mining pool drill failed"
+
+    # Monthly dust watchlist drill
+    - id: "dust_watchlist_monthly"
+      name: "Monthly Dust Watchlist Drill"
+      scenario: "dust_output_move"
+      cron: "0 5 1 * *"  # First day of each month at 05:00 UTC
+      severity: "watchlist"
+      enabled: true
+      
+      actions:
+        - "simulate_alert"
+        - "verify_detection"
+        - "batch_report"
+        
+      validation:
+        sla_threshold_seconds: 86400
+        
+      notifications:
+        on_failure:
+          - channel: "slack"
+            message: "👁️ Monthly dust watchlist drill failed"
+
+    # Weekly layering pattern drill
+    - id: "layering_weekly"
+      name: "Weekly Layering Pattern Drill"
+      scenario: "layering_pattern"
+      cron: "0 2 * * WED"  # Every Wednesday at 02:00 UTC
+      severity: "high"
+      enabled: true
+      
+      actions:
+        - "simulate_alert"
+        - "verify_detection"
+        - "verify_notification"
+        
+      validation:
+        sla_threshold_seconds: 900
+
+    # Quarterly comprehensive drill
+    - id: "comprehensive_quarterly"
+      name: "Quarterly Comprehensive Drill"
+      scenarios:
+        - "mixer_interaction"
+        - "exchange_sweep"
+        - "mining_pool_batch"
+        - "dust_output_move"
+        - "layering_pattern"
+        - "geographic_anomaly"
+      cron: "0 1 1 1,4,7,10 *"  # First day of each quarter at 01:00 UTC
+      severity: "critical"
+      enabled: true
+      
+      actions:
+        - "simulate_all_scenarios"
+        - "verify_all_detections"
+        - "generate_comprehensive_report"
+        - "notify_all_stakeholders"
+        
+      validation:
+        all_scenarios_must_pass: true
+        
+      notifications:
+        on_completion:
+          - channel: "email"
+            recipients:
+              - "compliance@cryptohound.com"
+              - "ciso@cryptohound.com"
+            subject: "Quarterly Guardian Shield Drill Report"
+
+    # Ad-hoc drill (manually triggered)
+    - id: "adhoc_drill"
+      name: "Ad-Hoc Manual Drill"
+      scenario: "configurable"
+      cron: null  # Manual trigger only
+      enabled: true
+      
+      parameters:
+        - name: "scenario_id"
+          type: "string"
+          required: true
+          description: "Scenario to execute"
+        - name: "severity_override"
+          type: "string"
+          required: false
+          description: "Override scenario severity"
+        - name: "notify"
+          type: "boolean"
+          default: false
+          description: "Send notifications"
+
+  maintenance_windows:
+    # Skip drills during maintenance
+    - id: "weekly_maintenance"
+      description: "Weekly system maintenance"
+      cron: "0 0 * * SUN"  # Sundays at midnight
+      duration_hours: 4
+      skip_drills: true
+      
+    - id: "monthly_maintenance"
+      description: "Monthly extended maintenance"
+      cron: "0 22 L * *"  # Last day of month at 22:00
+      duration_hours: 8
+      skip_drills: true
+
+  escalation:
+    consecutive_failures:
+      threshold: 3
+      actions:
+        - type: "pagerduty"
+          severity: "critical"
+        - type: "email"
+          recipients:
+            - "oncall@cryptohound.com"
+            - "ciso@cryptohound.com"
+        - type: "slack"
+          channel: "#guardian-shield-critical"
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+        metrics:
+          - name: "shield_drill_scheduled_total"
+            type: "counter"
+            description: "Total number of scheduled drills"
+          - name: "shield_drill_executed_total"
+            type: "counter"
+            description: "Total number of executed drills"
+            labels: ["scenario", "severity", "status"]
+          - name: "shield_drill_duration_seconds"
+            type: "histogram"
+            description: "Drill execution duration"
+            buckets: [10, 30, 60, 120, 300, 600]
+          - name: "shield_drill_sla_compliance"
+            type: "gauge"
+            description: "SLA compliance rate (0-1)"
+            labels: ["scenario", "severity"]
+
+  audit:
+    enabled: true
+    retention_days: 365
+    log_level: "info"
+    include:
+      - execution_start
+      - execution_end
+      - detection_time
+      - notification_sent
+      - sla_status
+      - errors
+      - evidence_generated

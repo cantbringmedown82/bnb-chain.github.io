@@ -1,0 +1,204 @@
+# Guardian Shield — Prometheus/Alertmanager Rules
+# Crypto Hound LLC
+
+groups:
+  - name: guardian_shield_fraud_alerts
+    interval: 30s
+    rules:
+      - alert: CriticalFraudEvent
+        expr: shield_alerts_total{severity="critical"} > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: fraud_response
+        annotations:
+          summary: "Critical fraud event detected"
+          description: "Fraud-linked cluster interacted with mixer/coinjoin. Case: {{ $labels.case_id }}"
+          runbook_url: "https://docs.cryptohound.com/runbooks/critical-fraud"
+          dashboard_url: "https://grafana.cryptohound.com/d/fraud-events"
+
+      - alert: HighSeverityFraudEvent
+        expr: shield_alerts_total{severity="high"} > 0
+        for: 2m
+        labels:
+          severity: high
+          team: fraud_response
+        annotations:
+          summary: "High severity fraud event detected"
+          description: "Fraud-linked cluster touched exchange hot wallet. Case: {{ $labels.case_id }}"
+          runbook_url: "https://docs.cryptohound.com/runbooks/high-fraud"
+
+      - alert: MediumSeverityFraudEvent
+        expr: shield_alerts_total{severity="medium"} > 0
+        for: 5m
+        labels:
+          severity: medium
+          team: fraud_monitoring
+        annotations:
+          summary: "Medium severity fraud event detected"
+          description: "Downstream behavior resembles mining pool payout. Case: {{ $labels.case_id }}"
+
+      - alert: WatchlistMovement
+        expr: shield_unspent_movements_total{severity="watchlist"} > 0
+        for: 10m
+        labels:
+          severity: watchlist
+          team: fraud_monitoring
+        annotations:
+          summary: "Watchlist UTXO movement detected"
+          description: "Unspent dust UTXO moved. Case: {{ $labels.case_id }}"
+
+  - name: guardian_shield_sla_alerts
+    interval: 60s
+    rules:
+      - alert: CriticalAlertSLABreach
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(shield_alert_response_seconds_bucket{severity="critical"}[5m])) by (le)
+          ) > 300
+        for: 2m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "Critical alert SLA breach"
+          description: "95th percentile response time for critical alerts exceeds 5 minutes"
+
+      - alert: HighAlertSLABreach
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(shield_alert_response_seconds_bucket{severity="high"}[5m])) by (le)
+          ) > 900
+        for: 5m
+        labels:
+          severity: high
+          team: sre
+        annotations:
+          summary: "High alert SLA breach"
+          description: "95th percentile response time for high alerts exceeds 15 minutes"
+
+  - name: guardian_shield_drill_alerts
+    interval: 60s
+    rules:
+      - alert: DrillFailure
+        expr: shield_drills_success_rate < 0.95
+        for: 5m
+        labels:
+          severity: high
+          team: sre
+        annotations:
+          summary: "Synthetic drill success rate below threshold"
+          description: "Drill success rate is {{ $value }}%, below 95% threshold"
+
+      - alert: DrillMissed
+        expr: increase(shield_drills_total[1d]) == 0
+        for: 1h
+        labels:
+          severity: medium
+          team: sre
+        annotations:
+          summary: "Scheduled drill was missed"
+          description: "No drills executed in the last 24 hours"
+
+  - name: guardian_shield_system_alerts
+    interval: 30s
+    rules:
+      - alert: OrchestratorDown
+        expr: up{job="shield-orchestrator"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "Shield Orchestrator is down"
+          description: "Shield Orchestrator instance {{ $labels.instance }} is unreachable"
+
+      - alert: AgentHighMemory
+        expr: |
+          container_memory_usage_bytes{container=~"shield-.*"} / 
+          container_spec_memory_limit_bytes{container=~"shield-.*"} > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          team: sre
+        annotations:
+          summary: "Shield agent high memory usage"
+          description: "Agent {{ $labels.container }} memory usage is above 85%"
+
+      - alert: LedgerWriteFailure
+        expr: increase(shield_ledger_write_errors_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: "Ledger write failure detected"
+          description: "Evidence ledger write failures detected. Data integrity at risk."
+
+      - alert: AnchorFailure
+        expr: increase(shield_anchor_failures_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: high
+          team: sre
+        annotations:
+          summary: "Blockchain anchor failure"
+          description: "Failed to anchor evidence to {{ $labels.network }}"
+
+receivers:
+  - name: regulator_critical
+    email_configs:
+      - to: "regulator@example.com"
+        send_resolved: true
+    webhook_configs:
+      - url: "https://api.cryptohound.com/webhooks/regulator"
+        send_resolved: true
+
+  - name: investor_alerts
+    email_configs:
+      - to: "investors@example.com"
+        send_resolved: true
+    webhook_configs:
+      - url: "https://api.cryptohound.com/webhooks/investor"
+        send_resolved: true
+
+  - name: sre_team
+    pagerduty_configs:
+      - service_key: "${PAGERDUTY_SERVICE_KEY}"
+        send_resolved: true
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#shield-alerts"
+        send_resolved: true
+
+route:
+  receiver: sre_team
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - match:
+        severity: critical
+      receiver: regulator_critical
+      continue: true
+    - match:
+        severity: critical
+        team: fraud_response
+      receiver: investor_alerts
+      continue: true
+    - match:
+        team: sre
+      receiver: sre_team
+
+inhibit_rules:
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ['alertname', 'instance']
+  - source_match:
+      alertname: OrchestratorDown
+    target_match:
+      alertname: AgentHighMemory
+    equal: ['instance']
