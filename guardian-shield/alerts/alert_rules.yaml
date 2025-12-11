@@ -100,6 +100,31 @@ groups:
           summary: "Scheduled drill was missed"
           description: "No drills executed in the last 24 hours"
 
+  - name: guardian_shield_security
+    interval: 30s
+    rules:
+      - alert: EvidenceTamperDetected
+        expr: increase(shield_evidence_tamper_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Evidence tamper attempt blocked"
+          description: "Hash/signature mismatch; response sealed and anchored."
+          runbook_url: "https://docs.cryptohound.com/runbooks/evidence-tamper"
+
+      - alert: AnchorVerificationFailed
+        expr: increase(shield_anchor_invalid_total[10m]) > 0
+        for: 2m
+        labels:
+          severity: high
+          team: security
+        annotations:
+          summary: "Anchor spoof or reorg invalidation"
+          description: "External verifier rejected anchor receipt."
+          runbook_url: "https://docs.cryptohound.com/runbooks/anchor-verification"
+
   - name: guardian_shield_system_alerts
     interval: 30s
     rules:

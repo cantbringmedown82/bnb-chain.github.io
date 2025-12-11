@@ -187,6 +187,7 @@ See [Drill Schedule](drills/drill_schedule.yaml) for configuration.
 
 | Document | Description |
 |----------|-------------|
+| [Sovereign Constitutional Artifact](docs/sovereign_constitutional_artifact.md) | Governance drill cycle flowchart |
 | [Incident Report Template](docs/incident_report_template.pdfa.md) | Weekly report structure |
 | [Security Hardening](docs/security_hardening_spec.md) | Security architecture |
 | [Penetration Testing](docs/penetration_testing_spec.md) | Red team scenarios |
