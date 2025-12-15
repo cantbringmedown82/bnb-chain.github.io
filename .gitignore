@@ -1,4 +1,10 @@
-site/
+# MkDocs build output (but track backend)
+site/*
+!site/backend/
+!site/backend/**
+
+# Ignore generated evidence file (created at runtime)
+site/backend/deploy/reports/compliance-evidence-index.json
 
 .idea/
 
@@ -9,3 +15,10 @@ site/
 build
 
 .docusaurus
+
+node_modules/
+*.log
+.env
+.env.local
+dist/
+coverage/
