@@ -1,0 +1,92 @@
+name: Governance Ledger Status
+
+on:
+  push:
+    paths:
+      - 'docs/meeting-logs/**'
+
+jobs:
+  seal-and-badge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Generate Seal ID
+        run: |
+          # Find the latest modified markdown file in meeting-logs (cross-platform)
+          latest=$(ls -t docs/meeting-logs/*/*.md 2>/dev/null | grep -v README | head -n1)
+          
+          if [ -z "$latest" ]; then
+            echo "No markdown files found in docs/meeting-logs"
+            exit 0
+          fi
+          
+          echo "Processing file: $latest"
+          
+          # Generate seal ID (SHA256 hash of file content)
+          timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          seal=$(sha256sum "$latest" | cut -d' ' -f1)
+          echo "Seal ID: $seal"
+          echo "Timestamp: $timestamp"
+          echo "SEAL_ID=$seal" >> $GITHUB_ENV
+          echo "TIMESTAMP=$timestamp" >> $GITHUB_ENV
+          echo "LATEST_FILE=$latest" >> $GITHUB_ENV
+
+          # Append seal footer if not already present (check for actual seal confirmation footer)
+          if ! grep -q "This log has been sealed and archived" "$latest"; then
+            echo "" >> "$latest"
+            echo "---" >> "$latest"
+            echo "" >> "$latest"
+            echo "**Seal Confirmation:**  " >> "$latest"
+            echo "This log has been sealed and archived under Crypto Hound Institutional License.  " >> "$latest"
+            echo "Seal ID: $seal  " >> "$latest"
+            echo "Sealed at: $timestamp" >> "$latest"
+            echo "Seal footer appended to $latest"
+          else
+            echo "Seal footer already present in $latest"
+          fi
+
+      - name: Commit updated log
+        run: |
+          git config --global user.name "Crypto Hound Bot"
+          git config --global user.email "bot@cryptohound.io"
+          git add docs/meeting-logs
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Seal log with ID $SEAL_ID"
+            git push
+          fi
+
+      - name: Update Governance Ledger Badge
+        if: env.SEAL_ID != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create or update release for governance ledger badge
+          TAG_NAME="governance-ledger"
+          RELEASE_TITLE="Governance Ledger Status - Up to Date"
+          RELEASE_BODY="**Latest Sealed Log:** \`$LATEST_FILE\`
+          
+          **Seal ID:** \`$SEAL_ID\`
+          
+          **Sealed at:** $TIMESTAMP
+          
+          ---
+          
+          This release is automatically updated when new meeting logs are sealed. The presence of this release indicates that the governance ledger is actively maintained and up to date."
+          
+          # Delete existing release and tag if they exist
+          gh release delete "$TAG_NAME" -y 2>/dev/null || true
+          git push --delete origin "$TAG_NAME" 2>/dev/null || true
+          
+          # Create new release
+          gh release create "$TAG_NAME" \
+            --title "$RELEASE_TITLE" \
+            --notes "$RELEASE_BODY" \
+            --latest
