@@ -1,0 +1,19 @@
+{
+  "name": "crypto-hound-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "PORT=3001 react-scripts start",
+    "build": "react-scripts build",
+    "serve": "serve -s build -l 3001"
+  },
+  "dependencies": {
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-router-dom": "^6.23.0"
+  },
+  "devDependencies": {
+    "react-scripts": "5.0.1",
+    "serve": "^14.2.1"
+  }
+}

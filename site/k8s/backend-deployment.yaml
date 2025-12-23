@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: crypto-hound
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: backend }
+  template:
+    metadata:
+      labels: { app: backend }
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/cryptohound/backend:latest
+          ports: [{ containerPort: 3000 }]
+          env:
+            - name: STRIPE_SECRET
+              valueFrom: { secretKeyRef: { name: site-secrets, key: stripe_secret } }
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom: { secretKeyRef: { name: site-secrets, key: stripe_webhook_secret } }
+            - name: PRICE_ID
+              valueFrom: { secretKeyRef: { name: site-secrets, key: stripe_price_id } }
+            - name: PUBLIC_URL
+              valueFrom: { secretKeyRef: { name: site-secrets, key: public_url } }
+          volumeMounts:
+            - name: reports
+              mountPath: /app/deploy/reports
+      volumes:
+        - name: reports
+          persistentVolumeClaim:
+            claimName: reports-pvc

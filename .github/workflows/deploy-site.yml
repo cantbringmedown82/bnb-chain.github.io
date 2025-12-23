@@ -1,0 +1,54 @@
+name: Deploy Site
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "site/**"
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: |
+          docker build -t ghcr.io/${{ github.repository_owner }}/backend:latest site/backend
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+          docker push ghcr.io/${{ github.repository_owner }}/backend:latest
+
+      - name: Build frontend image
+        run: |
+          docker build -t ghcr.io/${{ github.repository_owner }}/frontend:latest site/frontend
+          docker push ghcr.io/${{ github.repository_owner }}/frontend:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.29.0'
+      - name: Kubeconfig
+        run: echo "${{ secrets.KUBECONFIG }}" > kubeconfig && chmod 600 kubeconfig
+      - name: Apply manifests
+        env:
+          KUBECONFIG: kubeconfig
+        run: |
+          kubectl apply -f site/k8s/namespace.yaml
+          # Note: site/k8s/secrets-example.yaml is a template. Create actual secrets manually or via external secrets management before deploying.
+          kubectl apply -f site/k8s/reports-pvc.yaml
+          kubectl apply -f site/k8s/backend-deployment.yaml
+          kubectl apply -f site/k8s/backend-service.yaml
+          kubectl apply -f site/k8s/frontend-deployment.yaml
+          kubectl apply -f site/k8s/frontend-service.yaml
+          kubectl apply -f site/k8s/ingress.yaml
