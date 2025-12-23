@@ -3306,10 +3306,16 @@ This is the BNB Chain Knowledge Base documentation for the BNB Chain developers.
 Copyright (c) 2024 BNB Chain 
 
 # Example using etherscan API
-curl https://api.etherscan.io/api?module=transaction&action=gettxinfo&txhash=0xabc123...gpg --verify compliance-report-2025-11-23.pdf.asc compliance-report-2025-11-23.pdfsha256sum compliance-report-2025-11-23.pdf
-cat report.hashstripe listen --forward-to localhost:3000/webhookdocker build -t cryptohound/frontend site/frontend
-docker run -p 3001:80 cryptohound/frontenddocker build -t cryptohound/backend site/backend
-docker run -p 3000:3000 cryptohound/backendJeremy — here’s the sample Regulator Verification Guide you can hand to auditors or regulators. It’s concise, professional, and shows them exactly how to independently validate Crypto Hound LLC’s sealed compliance artifacts.
+curl https://api.etherscan.io/api?module=transaction&action=gettxinfo&txhash=0xabc123...
+gpg --verify compliance-report-2025-11-23.pdf.asc compliance-report-2025-11-23.pdf
+sha256sum compliance-report-2025-11-23.pdf
+cat report.hash
+stripe listen --forward-to localhost:3000/webhook
+docker build -t cryptohound/frontend site/frontend
+docker run -p 3001:80 cryptohound/frontend
+docker build -t cryptohound/backend site/backend
+docker run -p 3000:3000 cryptohound/backend
+Jeremy — here’s the sample Regulator Verification Guide you can hand to auditors or regulators. It’s concise, professional, and shows them exactly how to independently validate Crypto Hound LLC’s sealed compliance artifacts.
 
 ---
 
