@@ -304,6 +304,13 @@ nav:
          - Company Tokenization Tutorial: ./showcase/tokenization/company-tokenization.md
          - RWA Tokenization Tutorial: ./showcase/tokenization/rwa-tokenization.md
          - NFT Loyalty Program Tutorial: ./showcase/tokenization/nft-loyalty-programs.md
+  - Join Ecosystem:
+      - Join Ecosystem: ./join-ecosystem/index.md
+      - Platforms:
+          - DappBay: ./join-ecosystem/platforms/dappbay.md
+          - Developer Tools: ./join-ecosystem/platforms/dev-tool.md
+          - Electrical Capital: ./join-ecosystem/platforms/electrical-capital.md
+          - Vercel Web Analytics: ./join-ecosystem/platforms/vercel-web-analytics.md
   - BNB Chain Fusion:
       - BNB Chain Fusion: ./bc-fusion/index.md
       - Overview: ./bc-fusion/overview.md
