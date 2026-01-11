@@ -23,6 +23,8 @@ The Guardian Shield Regulator Portal provides authorized regulators, auditors, a
 | Access Dashboards | ✅ | ✅ | ✅ | ✅ |
 | Download Bundles | ✅ | ✅ | ❌ | ❌ |
 | Audit Logs | ✅ | ✅ | ❌ | ❌ |
+| User Profile | ✅ | ✅ | ✅ | ✅ |
+| API Keys | ✅ | ✅ | ❌ | ❌ |
 
 ### 2.2 Authentication Flow
 
@@ -200,6 +202,75 @@ sequenceDiagram
 - Report downloads
 - Verification requests
 - Configuration changes
+
+### 3.7 User Profile
+
+**Purpose:** Allow users to manage their profile information, security settings, and preferences.
+
+**Features:**
+- View and edit profile information (name, email, contact info)
+- Upload and change profile photo
+- Manage security settings:
+  - Enable/disable two-factor authentication
+  - View and revoke active sessions
+  - Create and manage API keys
+- Configure notification preferences:
+  - Email notifications (alerts, reports, drills)
+  - In-app notifications
+  - Delivery preferences (digest, quiet hours)
+- View activity log:
+  - Profile updates
+  - Login events
+  - API operations
+  - Evidence access history
+
+**Profile Information Card:**
+```
+┌───────────────────────────────────────────┐
+│ Profile Information                       │
+├───────────────────────────────────────────┤
+│        ┌─────────┐                        │
+│        │ [Photo] │                        │
+│        └─────────┘                        │
+│      [Change Photo]                       │
+│                                           │
+│ Name: John Doe                            │
+│ Email: john.doe@regulator.gov             │
+│ Role: Regulator                           │
+│ Organization: SEC                         │
+│ Member Since: Jan 15, 2025                │
+│                                           │
+│              [Edit Profile]               │
+└───────────────────────────────────────────┘
+```
+
+**Security Settings Card:**
+```
+┌───────────────────────────────────────────┐
+│ Security Settings                         │
+├───────────────────────────────────────────┤
+│ Two-Factor Authentication                 │
+│ ✓ Enabled (TOTP)                          │
+│ Last used: 3 hours ago                    │
+│ [Manage 2FA]                              │
+├───────────────────────────────────────────┤
+│ Active Sessions: 1                        │
+│ Current: Chrome on Windows                │
+│ [View All Sessions]                       │
+├───────────────────────────────────────────┤
+│ API Keys: 2 active                        │
+│ [Manage API Keys]                         │
+└───────────────────────────────────────────┘
+```
+
+**User Menu (Header Dropdown):**
+- Profile - Navigate to profile page
+- Settings - Quick access to preferences
+- Activity - View recent activity
+- API Keys - Manage API credentials
+- Help & Support - Access help center
+- Documentation - View documentation
+- Logout - Sign out of portal
 
 ---
 

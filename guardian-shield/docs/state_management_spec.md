@@ -21,6 +21,7 @@ interface RootState {
   reports: ReportsState;
   drills: DrillsState;
   alerts: AlertsState;
+  userProfile: UserProfileState;
   ui: UIState;
 }
 ```
@@ -316,6 +317,139 @@ interface AlertFilters {
     start: string | null;
     end: string | null;
   };
+}
+```
+
+#### User Profile State
+
+```typescript
+interface UserProfileState {
+  profile: UserProfile | null;
+  preferences: UserPreferences | null;
+  notifications: NotificationSettings | null;
+  security: SecuritySettings | null;
+  activityLog: Activity[];
+  sessions: SessionsList | null;
+  apiKeys: APIKey[];
+  loading: {
+    profile: boolean;
+    preferences: boolean;
+    notifications: boolean;
+    activity: boolean;
+    sessions: boolean;
+    apiKeys: boolean;
+  };
+  error: {
+    profile: string | null;
+    preferences: string | null;
+    notifications: string | null;
+    activity: string | null;
+    sessions: string | null;
+    apiKeys: string | null;
+  };
+  pagination: {
+    activity: {
+      current_page: number;
+      total_pages: number;
+      per_page: number;
+    };
+  };
+}
+
+interface UserProfile {
+  user_id: string;
+  name: string;
+  email: string;
+  role: 'regulator' | 'auditor' | 'investor' | 'viewer';
+  organization: string;
+  avatar_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface UserPreferences {
+  timezone: string;
+  language: string;
+  contact_email?: string;
+  contact_phone?: string;
+}
+
+interface NotificationSettings {
+  email: {
+    critical_alerts: boolean;
+    high_alerts: boolean;
+    medium_alerts: boolean;
+    weekly_reports: boolean;
+    drill_notifications: boolean;
+    system_maintenance: boolean;
+  };
+  in_app: {
+    alert_updates: boolean;
+    system_announcements: boolean;
+    drill_reminders: boolean;
+    report_ready: boolean;
+  };
+  delivery: {
+    email_digest: 'immediate' | 'hourly' | 'daily';
+    quiet_hours?: {
+      enabled: boolean;
+      start: string;
+      end: string;
+      timezone: string;
+    };
+    emergency_override: boolean;
+  };
+}
+
+interface SecuritySettings {
+  two_factor_enabled: boolean;
+  two_factor_method?: 'totp' | 'sms';
+  active_sessions: number;
+  api_keys_count: number;
+}
+
+type ActivityType = 
+  | 'profile_update' 
+  | 'login' 
+  | 'logout' 
+  | 'evidence_access' 
+  | 'report_download' 
+  | 'verification' 
+  | 'api_key_operation';
+
+interface Activity {
+  id: string;
+  type: ActivityType;
+  description: string;
+  timestamp: string;
+  ip_address: string;
+  user_agent?: string;
+  metadata?: Record<string, any>;
+}
+
+interface SessionsList {
+  current_session: UserSession;
+  other_sessions: UserSession[];
+}
+
+interface UserSession {
+  id: string;
+  device: string;
+  ip_address: string;
+  location: string;
+  created_at: string;
+  last_active: string;
+}
+
+interface APIKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  environment: 'production' | 'development';
+  created_at: string;
+  last_used: string | null;
+  scopes: string[];
+  expires_at: string | null;
 }
 ```
 
@@ -680,6 +814,142 @@ export const clearNotifications = createAction('ui/clearNotifications');
 export const setBreadcrumbs = createAction<Breadcrumb[]>('ui/setBreadcrumbs');
 ```
 
+### 3.7 User Profile Actions
+
+```typescript
+// Async Thunks
+export const fetchUserProfile = createAsyncThunk<UserProfile, void>(
+  'userProfile/fetchProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/users/profile');
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to fetch profile');
+    }
+  }
+);
+
+export const updateUserProfile = createAsyncThunk<UserProfile, Partial<UserPreferences>>(
+  'userProfile/updateProfile',
+  async (preferences, { rejectWithValue }) => {
+    try {
+      await api.patch('/users/profile', { preferences });
+      const response = await api.get('/users/profile');
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to update profile');
+    }
+  }
+);
+
+export const updateNotificationSettings = createAsyncThunk<NotificationSettings, Partial<NotificationSettings>>(
+  'userProfile/updateNotifications',
+  async (settings, { rejectWithValue }) => {
+    try {
+      await api.patch('/users/profile/notifications', settings);
+      const response = await api.get('/users/profile');
+      return response.data.notifications;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to update notifications');
+    }
+  }
+);
+
+export const uploadProfilePhoto = createAsyncThunk<string, File>(
+  'userProfile/uploadPhoto',
+  async (file, { rejectWithValue }) => {
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+      const response = await api.post('/users/profile/photo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return response.data.avatar_url;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to upload photo');
+    }
+  }
+);
+
+export const fetchActivityLog = createAsyncThunk<{ activities: Activity[], pagination: any }, { page: number; per_page: number; type?: string }>(
+  'userProfile/fetchActivity',
+  async ({ page, per_page, type }, { rejectWithValue }) => {
+    try {
+      const params = { page, per_page, ...(type && { type }) };
+      const response = await api.get('/users/profile/activity', { params });
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to fetch activity');
+    }
+  }
+);
+
+export const fetchActiveSessions = createAsyncThunk<SessionsList, void>(
+  'userProfile/fetchSessions',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/users/profile/sessions');
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to fetch sessions');
+    }
+  }
+);
+
+export const revokeSession = createAsyncThunk<string, string>(
+  'userProfile/revokeSession',
+  async (sessionId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/users/profile/sessions/${sessionId}`);
+      return sessionId;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to revoke session');
+    }
+  }
+);
+
+export const fetchAPIKeys = createAsyncThunk<APIKey[], void>(
+  'userProfile/fetchAPIKeys',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/users/profile/api-keys');
+      return response.data.api_keys;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to fetch API keys');
+    }
+  }
+);
+
+export const createAPIKey = createAsyncThunk<APIKey, { name: string; environment: string; scopes: string[]; expires_at?: string | null }>(
+  'userProfile/createAPIKey',
+  async (data, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/users/profile/api-keys', data);
+      return response.data.api_key;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to create API key');
+    }
+  }
+);
+
+export const revokeAPIKey = createAsyncThunk<string, string>(
+  'userProfile/revokeAPIKey',
+  async (keyId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/users/profile/api-keys/${keyId}`);
+      return keyId;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || 'Failed to revoke API key');
+    }
+  }
+);
+
+// Sync Actions
+export const clearProfileError = createAction<keyof UserProfileState['error']>('userProfile/clearError');
+export const resetProfileState = createAction('userProfile/reset');
+```
+
 ---
 
 ## 4. Selectors
@@ -753,6 +1023,83 @@ export const selectRecentAlerts = (count: number) =>
   createSelector(selectAlertStream, (alerts) => 
     alerts.slice(0, count)
   );
+```
+
+### 4.7 User Profile Selectors
+
+```typescript
+export const selectUserProfile = (state: RootState) => state.userProfile;
+export const selectProfile = (state: RootState) => state.userProfile.profile;
+export const selectUserPreferences = (state: RootState) => state.userProfile.preferences;
+export const selectNotificationSettings = (state: RootState) => state.userProfile.notifications;
+export const selectSecuritySettings = (state: RootState) => state.userProfile.security;
+export const selectActivityLog = (state: RootState) => state.userProfile.activityLog;
+export const selectUserSessions = (state: RootState) => state.userProfile.sessions;
+export const selectAPIKeys = (state: RootState) => state.userProfile.apiKeys;
+
+export const selectProfileLoading = (state: RootState) => state.userProfile.loading.profile;
+export const selectActivityLoading = (state: RootState) => state.userProfile.loading.activity;
+export const selectSessionsLoading = (state: RootState) => state.userProfile.loading.sessions;
+export const selectAPIKeysLoading = (state: RootState) => state.userProfile.loading.apiKeys;
+
+export const selectProfileError = (state: RootState) => state.userProfile.error.profile;
+export const selectActivityError = (state: RootState) => state.userProfile.error.activity;
+
+export const selectHasTwoFactorEnabled = createSelector(
+  selectSecuritySettings,
+  (security) => security?.two_factor_enabled ?? false
+);
+
+export const selectActiveAPIKeys = createSelector(
+  selectAPIKeys,
+  (keys) => keys.filter(key => !key.expires_at || new Date(key.expires_at) > new Date())
+);
+
+export const selectProductionAPIKeys = createSelector(
+  selectAPIKeys,
+  (keys) => keys.filter(key => key.environment === 'production')
+);
+
+export const selectRecentActivity = (count: number) =>
+  createSelector(selectActivityLog, (activities) =>
+    activities.slice(0, count)
+  );
+
+export const selectActivityByType = (type: Activity['type']) =>
+  createSelector(selectActivityLog, (activities) =>
+    activities.filter(activity => activity.type === type)
+  );
+
+export const selectEmailNotificationsEnabled = createSelector(
+  selectNotificationSettings,
+  (settings) => ({
+    critical: settings?.email.critical_alerts ?? true,
+    high: settings?.email.high_alerts ?? true,
+    medium: settings?.email.medium_alerts ?? false,
+    reports: settings?.email.weekly_reports ?? true,
+  })
+);
+
+export const selectQuietHoursActive = createSelector(
+  selectNotificationSettings,
+  (settings) => {
+    if (!settings?.delivery.quiet_hours?.enabled) return false;
+    
+    const now = new Date();
+    const timezone = settings.delivery.quiet_hours.timezone;
+    const currentTime = now.toLocaleTimeString('en-US', { 
+      hour12: false, 
+      hour: '2-digit', 
+      minute: '2-digit',
+      timeZone: timezone 
+    });
+    
+    const start = settings.delivery.quiet_hours.start;
+    const end = settings.delivery.quiet_hours.end;
+    
+    return currentTime >= start && currentTime <= end;
+  }
+);
 ```
 
 ---
@@ -848,6 +1195,7 @@ const rootReducer = combineReducers({
   reports: reportsReducer,
   drills: drillsReducer,
   alerts: alertsReducer,
+  userProfile: userProfileReducer,
   ui: uiReducer,
 });
 

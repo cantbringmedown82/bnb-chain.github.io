@@ -751,7 +751,431 @@ interface SelectOption {
 
 ---
 
-## 10. Utility Components
+## 10. User Profile Components
+
+### 10.1 UserProfilePage
+
+**Purpose:** Main user profile page container with tabs for different sections.
+
+```tsx
+interface UserProfilePageProps {
+  userId: string;
+  onSave?: (data: UserProfileData) => Promise<void>;
+  onPhotoUpload?: (file: File) => Promise<string>;
+}
+
+interface UserProfileData {
+  preferences: UserPreferences;
+  notifications: NotificationSettings;
+}
+
+interface UserPreferences {
+  display_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  timezone: string;
+  language: string;
+}
+
+interface NotificationSettings {
+  email: EmailNotifications;
+  in_app: InAppNotifications;
+  delivery: DeliveryPreferences;
+}
+
+// Usage
+<UserProfilePage
+  userId="usr_abc123"
+  onSave={handleProfileSave}
+  onPhotoUpload={handlePhotoUpload}
+/>
+```
+
+### 10.2 ProfileInfoCard
+
+**Purpose:** Display and edit user profile information.
+
+```tsx
+interface ProfileInfoCardProps {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    organization: string;
+    avatar_url?: string;
+    member_since: Date;
+  };
+  preferences: UserPreferences;
+  editable?: boolean;
+  onEdit?: (data: Partial<UserPreferences>) => Promise<void>;
+  onPhotoChange?: (file: File) => Promise<void>;
+}
+
+// Usage
+<ProfileInfoCard
+  user={currentUser}
+  preferences={userPreferences}
+  editable={true}
+  onEdit={handleProfileEdit}
+  onPhotoChange={handlePhotoChange}
+/>
+```
+
+### 10.3 SecuritySettingsCard
+
+**Purpose:** Manage security settings (2FA, sessions, API keys).
+
+```tsx
+interface SecuritySettingsCardProps {
+  twoFactorEnabled: boolean;
+  twoFactorMethod?: 'totp' | 'sms';
+  activeSessions: number;
+  apiKeysCount: number;
+  onEnable2FA?: () => void;
+  onDisable2FA?: () => void;
+  onManageSessions?: () => void;
+  onManageAPIKeys?: () => void;
+}
+
+// Usage
+<SecuritySettingsCard
+  twoFactorEnabled={true}
+  twoFactorMethod="totp"
+  activeSessions={2}
+  apiKeysCount={3}
+  onEnable2FA={handleEnable2FA}
+  onManageSessions={handleManageSessions}
+  onManageAPIKeys={handleManageAPIKeys}
+/>
+```
+
+### 10.4 NotificationPreferencesCard
+
+**Purpose:** Configure notification preferences.
+
+```tsx
+interface NotificationPreferencesCardProps {
+  settings: NotificationSettings;
+  onChange: (settings: NotificationSettings) => void;
+  onSave: () => Promise<void>;
+}
+
+interface EmailNotifications {
+  critical_alerts: boolean;
+  high_alerts: boolean;
+  medium_alerts: boolean;
+  weekly_reports: boolean;
+  drill_notifications: boolean;
+  system_maintenance: boolean;
+}
+
+interface InAppNotifications {
+  alert_updates: boolean;
+  system_announcements: boolean;
+  drill_reminders: boolean;
+  report_ready: boolean;
+}
+
+interface DeliveryPreferences {
+  email_digest: 'immediate' | 'hourly' | 'daily';
+  quiet_hours?: {
+    enabled: boolean;
+    start: string; // HH:mm format
+    end: string;
+    timezone: string;
+  };
+  emergency_override: boolean;
+}
+
+// Usage
+<NotificationPreferencesCard
+  settings={notificationSettings}
+  onChange={handleSettingsChange}
+  onSave={handleSave}
+/>
+```
+
+### 10.5 ActivityLogCard
+
+**Purpose:** Display user activity history.
+
+```tsx
+interface ActivityLogCardProps {
+  activities: Activity[];
+  loading?: boolean;
+  pagination: {
+    current_page: number;
+    total_pages: number;
+    per_page: number;
+  };
+  onPageChange: (page: number) => void;
+  onExport?: () => void;
+}
+
+type ActivityType = 
+  | 'profile_update' 
+  | 'login' 
+  | 'logout' 
+  | 'evidence_access' 
+  | 'report_download' 
+  | 'verification' 
+  | 'api_key_operation';
+
+interface Activity {
+  id: string;
+  type: ActivityType;
+  description: string;
+  timestamp: Date; // Transformed from API string to Date object
+  ip_address: string;
+  user_agent?: string;
+  metadata?: Record<string, any>;
+}
+
+// Usage
+<ActivityLogCard
+  activities={recentActivities}
+  loading={isLoading}
+  pagination={paginationInfo}
+  onPageChange={handlePageChange}
+  onExport={handleExport}
+/>
+```
+
+### 10.6 SessionListCard
+
+**Purpose:** Display and manage active sessions.
+
+```tsx
+interface SessionListCardProps {
+  currentSession: Session;
+  otherSessions: Session[];
+  onRevoke: (sessionId: string) => Promise<void>;
+  onRevokeAll?: () => Promise<void>;
+}
+
+interface Session {
+  id: string;
+  device: string;
+  ip_address: string;
+  location: string;
+  created_at: Date;
+  last_active: Date;
+}
+
+// Usage
+<SessionListCard
+  currentSession={currentSession}
+  otherSessions={otherSessions}
+  onRevoke={handleRevokeSession}
+  onRevokeAll={handleRevokeAllSessions}
+/>
+```
+
+### 10.7 APIKeyListCard
+
+**Purpose:** Display and manage API keys.
+
+```tsx
+interface APIKeyListCardProps {
+  apiKeys: APIKey[];
+  onCreateNew?: () => void;
+  onRotate?: (keyId: string) => Promise<void>;
+  onRevoke?: (keyId: string) => Promise<void>;
+  onCopy?: (key: string) => void;
+  userRole: 'regulator' | 'auditor' | 'investor' | 'viewer';
+}
+
+interface APIKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  environment: 'production' | 'development';
+  created_at: Date;
+  last_used: Date | null;
+  scopes: string[];
+  expires_at: Date | null;
+}
+
+// Usage
+<APIKeyListCard
+  apiKeys={userAPIKeys}
+  onCreateNew={handleCreateAPIKey}
+  onRotate={handleRotateKey}
+  onRevoke={handleRevokeKey}
+  onCopy={handleCopyKey}
+  userRole="regulator"
+/>
+```
+
+### 10.8 CreateAPIKeyDialog
+
+**Purpose:** Dialog for creating new API keys.
+
+```tsx
+interface CreateAPIKeyDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onCreate: (data: CreateAPIKeyData) => Promise<APIKey>;
+  availableScopes: ScopeOption[];
+}
+
+interface CreateAPIKeyData {
+  name: string;
+  environment: 'production' | 'development';
+  scopes: string[];
+  expires_at: Date | null;
+}
+
+interface ScopeOption {
+  value: string;
+  label: string;
+  description: string;
+  restricted?: boolean;
+}
+
+// Usage
+<CreateAPIKeyDialog
+  open={dialogOpen}
+  onClose={handleClose}
+  onCreate={handleCreateKey}
+  availableScopes={availableScopes}
+/>
+```
+
+### 10.9 EditProfileDialog
+
+**Purpose:** Dialog for editing user profile information.
+
+```tsx
+interface EditProfileDialogProps {
+  open: boolean;
+  onClose: () => void;
+  currentData: UserPreferences;
+  onSave: (data: UserPreferences) => Promise<void>;
+  timezones: TimezoneOption[];
+  languages: LanguageOption[];
+}
+
+interface TimezoneOption {
+  value: string;
+  label: string;
+  offset: string;
+}
+
+interface LanguageOption {
+  value: string;
+  label: string;
+}
+
+// Usage
+<EditProfileDialog
+  open={editDialogOpen}
+  onClose={handleCloseDialog}
+  currentData={userPreferences}
+  onSave={handleSaveProfile}
+  timezones={availableTimezones}
+  languages={availableLanguages}
+/>
+```
+
+### 10.10 UserMenu
+
+**Purpose:** User menu dropdown in header.
+
+```tsx
+interface UserMenuProps {
+  user: {
+    name: string;
+    role: string;
+    avatar_url?: string;
+  };
+  onProfileClick: () => void;
+  onSettingsClick: () => void;
+  onActivityClick: () => void;
+  onAPIKeysClick: () => void;
+  onHelpClick: () => void;
+  onDocsClick: () => void;
+  onLogout: () => void;
+}
+
+// Usage
+<UserMenu
+  user={currentUser}
+  onProfileClick={() => navigate('/profile')}
+  onSettingsClick={() => navigate('/settings')}
+  onActivityClick={() => navigate('/profile#activity')}
+  onAPIKeysClick={() => navigate('/profile#api-keys')}
+  onHelpClick={() => window.open('/help', '_blank')}
+  onDocsClick={() => window.open('/docs', '_blank')}
+  onLogout={handleLogout}
+/>
+```
+
+**Component Structure:**
+```tsx
+const UserMenu: React.FC<UserMenuProps> = ({ user, ...handlers }) => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+
+  return (
+    <>
+      <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}>
+        <Avatar src={user.avatar_url} alt={user.name}>
+          {user.name.split(' ').map(n => n[0]).join('')}
+        </Avatar>
+      </IconButton>
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={() => setAnchorEl(null)}
+      >
+        <Box sx={{ px: 2, py: 1 }}>
+          <Typography variant="subtitle1">{user.name}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {user.role}
+          </Typography>
+        </Box>
+        <Divider />
+        <MenuItem onClick={handlers.onProfileClick}>
+          <ListItemIcon><PersonIcon /></ListItemIcon>
+          Profile
+        </MenuItem>
+        <MenuItem onClick={handlers.onSettingsClick}>
+          <ListItemIcon><SettingsIcon /></ListItemIcon>
+          Settings
+        </MenuItem>
+        <MenuItem onClick={handlers.onActivityClick}>
+          <ListItemIcon><TimelineIcon /></ListItemIcon>
+          Activity
+        </MenuItem>
+        <MenuItem onClick={handlers.onAPIKeysClick}>
+          <ListItemIcon><KeyIcon /></ListItemIcon>
+          API Keys
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={handlers.onHelpClick}>
+          <ListItemIcon><HelpIcon /></ListItemIcon>
+          Help & Support
+        </MenuItem>
+        <MenuItem onClick={handlers.onDocsClick}>
+          <ListItemIcon><BookIcon /></ListItemIcon>
+          Documentation
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={handlers.onLogout}>
+          <ListItemIcon><LogoutIcon /></ListItemIcon>
+          Logout
+        </MenuItem>
+      </Menu>
+    </>
+  );
+};
+```
+
+---
+
+## 11. Utility Components
 
 ### 10.1 LoadingOverlay
 

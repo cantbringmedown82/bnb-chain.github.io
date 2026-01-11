@@ -421,6 +421,223 @@ export const drillsApi = {
 };
 ```
 
+### 3.6 User Profile API
+
+```typescript
+// api/services/userProfile.ts
+import { apiClient } from '../client';
+
+export interface UserProfile {
+  user_id: string;
+  name: string;
+  email: string;
+  role: 'regulator' | 'auditor' | 'investor' | 'viewer';
+  organization: string;
+  avatar_url?: string;
+  created_at: string;
+  updated_at: string;
+  preferences: UserPreferences;
+  notifications: NotificationSettings;
+  security: SecuritySettings;
+}
+
+export interface UserPreferences {
+  timezone: string;
+  language: string;
+  contact_email?: string;
+  contact_phone?: string;
+}
+
+export interface NotificationSettings {
+  email: {
+    critical_alerts: boolean;
+    high_alerts: boolean;
+    medium_alerts: boolean;
+    weekly_reports: boolean;
+    drill_notifications: boolean;
+    system_maintenance: boolean;
+  };
+  in_app: {
+    alert_updates: boolean;
+    system_announcements: boolean;
+    drill_reminders: boolean;
+    report_ready: boolean;
+  };
+  delivery: {
+    email_digest: 'immediate' | 'hourly' | 'daily';
+    quiet_hours?: {
+      enabled: boolean;
+      start: string;
+      end: string;
+      timezone: string;
+    };
+    emergency_override: boolean;
+  };
+}
+
+export interface SecuritySettings {
+  two_factor_enabled: boolean;
+  two_factor_method?: 'totp' | 'sms';
+  active_sessions: number;
+  api_keys_count: number;
+}
+
+export type ActivityType = 
+  | 'profile_update' 
+  | 'login' 
+  | 'logout' 
+  | 'evidence_access' 
+  | 'report_download' 
+  | 'verification' 
+  | 'api_key_operation';
+
+export interface Activity {
+  id: string;
+  type: ActivityType;
+  description: string;
+  timestamp: string;
+  ip_address: string;
+  user_agent?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface UserSession {
+  id: string;
+  device: string;
+  ip_address: string;
+  location: string;
+  created_at: string;
+  last_active: string;
+}
+
+export interface APIKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  environment: 'production' | 'development';
+  created_at: string;
+  last_used: string | null;
+  scopes: string[];
+  expires_at: string | null;
+}
+
+export const userProfileApi = {
+  /**
+   * Get user profile
+   * GET /users/profile
+   */
+  getProfile: async (): Promise<UserProfile> => {
+    const response = await apiClient.get('/users/profile');
+    return response.data;
+  },
+
+  /**
+   * Update user profile
+   * PATCH /users/profile
+   */
+  updateProfile: async (preferences: Partial<UserPreferences>): Promise<void> => {
+    await apiClient.patch('/users/profile', { preferences });
+  },
+
+  /**
+   * Update notification settings
+   * PATCH /users/profile/notifications
+   */
+  updateNotifications: async (settings: Partial<NotificationSettings>): Promise<void> => {
+    await apiClient.patch('/users/profile/notifications', settings);
+  },
+
+  /**
+   * Upload profile photo
+   * POST /users/profile/photo
+   */
+  uploadPhoto: async (file: File): Promise<{ avatar_url: string; thumbnail_url: string }> => {
+    const formData = new FormData();
+    formData.append('photo', file);
+    const response = await apiClient.post('/users/profile/photo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
+  /**
+   * Get activity log
+   * GET /users/profile/activity
+   */
+  getActivity: async (params?: {
+    page?: number;
+    per_page?: number;
+    type?: string;
+    start_date?: string;
+  }): Promise<{
+    activities: Activity[];
+    pagination: {
+      current_page: number;
+      per_page: number;
+      total_entries: number;
+      total_pages: number;
+    };
+  }> => {
+    const response = await apiClient.get('/users/profile/activity', { params });
+    return response.data;
+  },
+
+  /**
+   * Get active sessions
+   * GET /users/profile/sessions
+   */
+  getSessions: async (): Promise<{
+    current_session: UserSession;
+    other_sessions: UserSession[];
+  }> => {
+    const response = await apiClient.get('/users/profile/sessions');
+    return response.data;
+  },
+
+  /**
+   * Revoke session
+   * DELETE /users/profile/sessions/{session_id}
+   */
+  revokeSession: async (sessionId: string): Promise<void> => {
+    await apiClient.delete(`/users/profile/sessions/${sessionId}`);
+  },
+
+  /**
+   * List API keys
+   * GET /users/profile/api-keys
+   */
+  getAPIKeys: async (): Promise<{ api_keys: APIKey[] }> => {
+    const response = await apiClient.get('/users/profile/api-keys');
+    return response.data;
+  },
+
+  /**
+   * Create API key
+   * POST /users/profile/api-keys
+   */
+  createAPIKey: async (data: {
+    name: string;
+    environment: 'production' | 'development';
+    scopes: string[];
+    expires_at?: string | null;
+  }): Promise<{
+    api_key: APIKey & { key: string };
+    warning: string;
+  }> => {
+    const response = await apiClient.post('/users/profile/api-keys', data);
+    return response.data;
+  },
+
+  /**
+   * Revoke API key
+   * DELETE /users/profile/api-keys/{key_id}
+   */
+  revokeAPIKey: async (keyId: string): Promise<void> => {
+    await apiClient.delete(`/users/profile/api-keys/${keyId}`);
+  },
+};
+```
+
 ---
 
 ## 4. React Query Integration
@@ -686,6 +903,127 @@ export const useAlertsStream = () => {
   }, [connect, disconnect]);
 
   return { alerts, status, reconnect: connect };
+};
+```
+
+### 4.3 User Profile Query Hooks
+
+```typescript
+// hooks/useUserProfile.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { userProfileApi } from '../api/userProfile';
+
+export const USER_PROFILE_KEYS = {
+  all: ['userProfile'] as const,
+  profile: () => [...USER_PROFILE_KEYS.all, 'profile'] as const,
+  activity: () => [...USER_PROFILE_KEYS.all, 'activity'] as const,
+  sessions: () => [...USER_PROFILE_KEYS.all, 'sessions'] as const,
+  apiKeys: () => [...USER_PROFILE_KEYS.all, 'apiKeys'] as const,
+};
+
+export const useUserProfile = () => {
+  return useQuery({
+    queryKey: USER_PROFILE_KEYS.profile(),
+    queryFn: userProfileApi.getProfile,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+};
+
+export const useUpdateProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: userProfileApi.updateProfile,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_PROFILE_KEYS.profile() });
+    },
+  });
+};
+
+export const useUpdateNotifications = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: userProfileApi.updateNotifications,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_PROFILE_KEYS.profile() });
+    },
+  });
+};
+
+export const useUploadPhoto = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: userProfileApi.uploadPhoto,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_PROFILE_KEYS.profile() });
+    },
+  });
+};
+
+export const useActivity = (params?: {
+  page?: number;
+  per_page?: number;
+  type?: string;
+  start_date?: string;
+}) => {
+  return useQuery({
+    queryKey: [...USER_PROFILE_KEYS.activity(), params],
+    queryFn: () => userProfileApi.getActivity(params),
+    keepPreviousData: true,
+  });
+};
+
+export const useUserSessions = () => {
+  return useQuery({
+    queryKey: USER_PROFILE_KEYS.sessions(),
+    queryFn: userProfileApi.getSessions,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+};
+
+export const useRevokeSession = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: userProfileApi.revokeSession,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_PROFILE_KEYS.sessions() });
+    },
+  });
+};
+
+export const useAPIKeys = () => {
+  return useQuery({
+    queryKey: USER_PROFILE_KEYS.apiKeys(),
+    queryFn: userProfileApi.getAPIKeys,
+    select: (data) => data.api_keys,
+  });
+};
+
+export const useCreateAPIKey = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: userProfileApi.createAPIKey,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_PROFILE_KEYS.apiKeys() });
+      queryClient.invalidateQueries({ queryKey: USER_PROFILE_KEYS.profile() });
+    },
+  });
+};
+
+export const useRevokeAPIKey = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: userProfileApi.revokeAPIKey,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_PROFILE_KEYS.apiKeys() });
+      queryClient.invalidateQueries({ queryKey: USER_PROFILE_KEYS.profile() });
+    },
+  });
 };
 ```
 
